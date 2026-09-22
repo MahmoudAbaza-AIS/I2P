@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Platform.I2P.Api</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <!-- Direct pin: Microsoft.AspNetCore.OpenApi 10.0.x may still resolve OpenApi 2.0.0 (GHSA-v5pm-xwqc-g5wc) -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.12.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageReference Include="Serilog.Enrichers.Thread" Version="4.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Platform.I2P.Application\Platform.I2P.Application.csproj" />
+    <ProjectReference Include="..\Platform.I2P.Connectors.Cmms\Platform.I2P.Connectors.Cmms.csproj" />
+    <ProjectReference Include="..\Platform.I2P.Connectors.Gis\Platform.I2P.Connectors.Gis.csproj" />
+    <ProjectReference Include="..\Platform.I2P.Connectors.Lims\Platform.I2P.Connectors.Lims.csproj" />
+    <ProjectReference Include="..\Platform.I2P.Connectors.Mes\Platform.I2P.Connectors.Mes.csproj" />
+    <ProjectReference Include="..\Platform.I2P.Connectors.Sap\Platform.I2P.Connectors.Sap.csproj" />
+    <ProjectReference Include="..\Platform.I2P.Contracts\Platform.I2P.Contracts.csproj" />
+    <ProjectReference Include="..\Platform.I2P.Infrastructure\Platform.I2P.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Platform.I2P.Contracts</RootNamespace>
+    <Version>1.0.0</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>Platform.I2P.Contracts</PackageId>
+    <Authors>Industrial SCADA Automation Platform</Authors>
+    <Description>Published DTOs and events for the I2P integration module. Other platform modules may only depend on this package.</Description>
+    <PackageVersion>1.0.0</PackageVersion>
+  </PropertyGroup>
+</Project>

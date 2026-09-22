@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Platform.I2P.Domain</RootNamespace>
+  </PropertyGroup>
+  <!-- Domain must reference only the .NET BCL. No PackageReference allowed. -->
+</Project>

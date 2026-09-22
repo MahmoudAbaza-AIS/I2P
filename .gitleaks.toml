@@ -1,0 +1,7 @@
+title = "Platform.I2P gitleaks"
+[allowlist]
+  description = "Development placeholder tokens that are intentionally empty or non-secret fixtures"
+  paths = [
+    '''.*/appsettings\.example\.md$''',
+    '''.*/Platform\.Docs/.*'''
+  ]

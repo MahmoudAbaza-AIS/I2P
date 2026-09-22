@@ -1,0 +1,313 @@
+name: I2P CI/CD
+
+on:
+  pull_request:
+    branches: [main, ppr, dev]
+  push:
+    branches: [main, ppr, dev]
+  schedule:
+    - cron: '0 3 * * 1'   # weekly transitive dependency re-scan
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  SOLUTION: 'Platform.I2P/Platform.I2P.sln'
+  COVERAGE_THRESHOLD: 80
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+
+  # ---------- Build once, format check, SonarQube quality gate (blocking) ----------
+  build:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ hashFiles('**/*.csproj') }}
+      - run: dotnet restore ${{ env.SOLUTION }}
+      - run: dotnet format ${{ env.SOLUTION }} --verify-no-changes --severity warn
+      - run: dotnet tool install --global dotnet-sonarscanner
+      - name: SonarQube begin
+        run: >
+          dotnet-sonarscanner begin /k:"platform-i2p"
+          /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+          /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}"
+      - run: dotnet build ${{ env.SOLUTION }} --no-restore -c Release /p:TreatWarningsAsErrors=true
+      - name: SonarQube end
+        run: dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+      - name: SonarQube quality gate (blocking)
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env: { SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} }
+      - uses: actions/upload-artifact@v4
+        with: { name: build-output, path: '**/bin/Release/**', retention-days: 1 }
+
+  pr-metadata:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || "";
+            if (!/\b(FR|NFR)-[A-Z]{2,6}-\d{2,4}\b/.test(body)) {
+              core.setFailed("PR description must reference a requirement ID (e.g. FR-API-041).");
+            }
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+
+  # ---------- Platform-layer tests: Domain, Application, Api, Architecture ----------
+  platform-tests:
+    if: github.event_name != 'schedule'
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - Platform.I2P.Domain.Tests
+          - Platform.I2P.Application.Tests
+          - Platform.I2P.Api.Tests
+          - Platform.I2P.Architecture.Tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+      - uses: actions/download-artifact@v4
+        with: { name: build-output }
+      - run: >
+          dotnet test Platform.I2P/tests/${{ matrix.project }}/${{ matrix.project }}.csproj
+          --no-build -c Release
+          /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=../../coverage/${{ matrix.project }}.
+          --logger "trx;LogFileName=${{ matrix.project }}.trx"
+      - uses: actions/upload-artifact@v4
+        with: { name: coverage-${{ matrix.project }}, path: '**/coverage/${{ matrix.project }}.cobertura.xml' }
+      - uses: dorny/test-reporter@v1
+        if: always()
+        with: { name: '${{ matrix.project }}', path: '**/${{ matrix.project }}.trx', reporter: dotnet-trx }
+
+  coverage-gate:
+    if: github.event_name != 'schedule'
+    needs: platform-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { pattern: 'coverage-Platform.I2P.Domain.Tests', merge-multiple: true }
+      - uses: actions/download-artifact@v4
+        with: { pattern: 'coverage-Platform.I2P.Application.Tests', merge-multiple: true }
+      - uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: '*.cobertura.xml'
+          fail_below_min: true
+          thresholds: '${{ env.COVERAGE_THRESHOLD }} ${{ env.COVERAGE_THRESHOLD }}'
+
+  # ---------- Connector contract tests, WireMock only, never a live vendor call ----------
+  connector-contract-tests:
+    if: github.event_name != 'schedule'
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        connector: [Sap, Mes, Cmms, Gis, Lims]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+      - uses: actions/download-artifact@v4
+        with: { name: build-output }
+      - name: Run ${{ matrix.connector }} contract tests (WireMock fixtures only)
+        run: >
+          dotnet test Platform.I2P/tests/Platform.I2P.Connectors.${{ matrix.connector }}.Tests/Platform.I2P.Connectors.${{ matrix.connector }}.Tests.csproj
+          --no-build -c Release
+          --logger "trx;LogFileName=${{ matrix.connector }}-contract.trx"
+      - uses: dorny/test-reporter@v1
+        if: always()
+        with: { name: '${{ matrix.connector }} Contract Tests', path: '**/${{ matrix.connector }}-contract.trx', reporter: dotnet-trx }
+
+  # ---------- Integration: real SQL Server + RabbitMQ, isolated on purpose ----------
+  integration:
+    if: github.event_name != 'schedule'
+    needs: build
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env: { ACCEPT_EULA: 'Y', SA_PASSWORD: '${{ secrets.CI_SQL_PASSWORD }}' }
+        ports: ['1433:1433']
+        options: >-
+          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q 'SELECT 1' || exit 1"
+          --health-interval=10s --health-retries=10
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports: ['5672:5672']
+        options: --health-cmd="rabbitmq-diagnostics -q ping" --health-interval=10s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+      - uses: actions/download-artifact@v4
+        with: { name: build-output }
+      - run: >
+          dotnet test Platform.I2P/tests/Platform.I2P.Integration.Tests/Platform.I2P.Integration.Tests.csproj
+          --no-build -c Release --logger "trx;LogFileName=integration.trx"
+        env:
+          ConnectionStrings__I2PDatabase: 'Server=localhost,1433;Database=I2P_CI;User Id=sa;Password=${{ secrets.CI_SQL_PASSWORD }};TrustServerCertificate=True;'
+          RabbitMq__Host: 'localhost'
+      - uses: dorny/test-reporter@v1
+        if: always()
+        with: { name: Integration, path: '**/integration.trx', reporter: dotnet-trx }
+
+  # ---------- Dependency + supply chain, runs on PR and weekly schedule ----------
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+      - run: dotnet restore ${{ env.SOLUTION }}
+      - run: |
+          set -e
+          OUT=$(dotnet list ${{ env.SOLUTION }} package --vulnerable --include-transitive 2>&1)
+          echo "$OUT"
+          echo "$OUT" | grep -q "has the following vulnerable packages" && exit 1 || true
+      - uses: actions/dependency-review-action@v4
+        if: github.event_name == 'pull_request'
+        with: { fail-on-severity: high }
+
+  # ---------- Reviewer nudge on security-sensitive diffs ----------
+  security-flag:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            const hit = files.filter(f => /Auth|Security|Secrets|Identity|Encrypt/i.test(f.filename));
+            if (hit.length) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body: `Security-sensitive files changed:\n${hit.map(f => `- ${f.filename}`).join("\n")}\n\nConfirm negative-path tests exist before approving.`
+              });
+            }
+
+  # ---------- Container image: built for any push to dev, ppr, or main ----------
+  docker-build:
+    if: >
+      github.event_name == 'push' &&
+      contains(fromJSON('["dev","ppr","main"]'), github.ref_name)
+    needs: [platform-tests, coverage-gate, connector-contract-tests, integration, dependency-scan]
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ steps.tag.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tag
+        run: echo "value=platform-i2p:${{ github.ref_name }}-${{ github.sha }}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: Platform.I2P
+          file: Platform.I2P/Dockerfile
+          push: false
+          tags: ${{ steps.tag.outputs.value }}
+
+  # ---------- Dev environment: fast feedback, single instance, no approval gate ----------
+  # Not held to the continuous-operation / redundant-failover standard, this
+  # environment exists for engineering iteration, not customer-facing use.
+  deploy-dev:
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    needs: docker-build
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy image to dev instance (direct recreate, no redundancy pair required)
+        run: echo "Deploy ${{ needs.docker-build.outputs.image-tag }} to the dev instance and restart the service."
+
+  # ---------- ppr: dress rehearsal for the production rollout mechanism ----------
+  # Deliberately uses the SAME rolling-through-redundancy procedure as production,
+  # so the deployment mechanism itself gets validated here before it is ever run
+  # against a real customer environment. This is also where FAT/SAT/UAT activities
+  # and vendor-sandbox-backed connector validation should occur before a release
+  # is promoted to main. If a connector's protocol assumption (OData vs IDoc for
+  # SAP, OPC-UA vs REST/B2MML for MES, etc.) was never confirmed against a real
+  # sandbox, ppr is the last checkpoint before that gap reaches a
+  # customer, do not skip this stage under schedule pressure.
+  deploy-ppr:
+    if: github.ref == 'refs/heads/ppr' && github.event_name == 'push'
+    needs: docker-build
+    runs-on: ubuntu-latest
+    environment: ppr
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rolling deploy through the ppr redundancy pair
+        run: |
+          echo "Deploying ${{ needs.docker-build.outputs.image-tag }} to the ppr standby instance."
+          echo "1. Take standby out of rotation."
+          echo "2. Deploy image, wait for readiness/health check to pass."
+          echo "3. Synchronize state with the active ppr instance."
+          echo "4. Cut traffic over to the newly deployed instance."
+          echo "5. Monitor; on failure, fail back to the previous instance automatically."
+          echo "6. Repeat for the now-idle former-primary instance."
+
+  # ---------- Production: manual approval required, rolling deploy only ----------
+  # Configure required reviewers on the 'production' environment in repo
+  # settings, this file intentionally does not auto-approve production.
+  deploy-production:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: docker-build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rolling deploy through the production redundancy pair
+        run: |
+          echo "Deploying ${{ needs.docker-build.outputs.image-tag }} to the production standby instance."
+          echo "1. Take standby out of rotation."
+          echo "2. Deploy image, wait for readiness/health check to pass."
+          echo "3. Synchronize state with the active production instance."
+          echo "4. Cut traffic over to the newly deployed instance."
+          echo "5. Monitor; on failure, fail back to the previous instance automatically."
+          echo "6. Repeat for the now-idle former-primary instance."
+
+  # ---------- Single required status check for branch protection (PRs only) ----------
+  # Deliberately excludes docker-build and the three deploy jobs: those only
+  # run on push to a long-lived branch, so a PR-required check can never
+  # depend on them without deadlocking every PR opened against dev,
+  # ppr, or main.
+  all-checks:
+    if: always() && github.event_name == 'pull_request'
+    needs: [build, pr-metadata, secret-scan, platform-tests, coverage-gate, connector-contract-tests, integration, dependency-scan, security-flag]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
+            echo "One or more required checks failed." && exit 1
+          fi
+          echo "All standards satisfied."
