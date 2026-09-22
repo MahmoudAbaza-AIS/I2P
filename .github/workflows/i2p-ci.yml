@@ -30,11 +30,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '17' }
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
@@ -53,9 +57,13 @@ jobs:
       - name: SonarQube quality gate (blocking)
         uses: sonarsource/sonarqube-quality-gate-action@master
         timeout-minutes: 5
-        env: { SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} }
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       - uses: actions/upload-artifact@v4
-        with: { name: build-output, path: '**/bin/Release/**', retention-days: 1 }
+        with:
+          name: build-output
+          path: '**/bin/Release/**'
+          retention-days: 1
 
   pr-metadata:
     if: github.event_name == 'pull_request'
@@ -73,9 +81,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ---------- Platform-layer tests: Domain, Application, Api, Architecture ----------
   platform-tests:
@@ -93,19 +103,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - uses: actions/download-artifact@v4
-        with: { name: build-output }
+        with:
+          name: build-output
       - run: >
           dotnet test Platform.I2P/tests/${{ matrix.project }}/${{ matrix.project }}.csproj
           --no-build -c Release
           /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=../../coverage/${{ matrix.project }}.
           --logger "trx;LogFileName=${{ matrix.project }}.trx"
       - uses: actions/upload-artifact@v4
-        with: { name: coverage-${{ matrix.project }}, path: '**/coverage/${{ matrix.project }}.cobertura.xml' }
+        with:
+          name: coverage-${{ matrix.project }}
+          path: '**/coverage/${{ matrix.project }}.cobertura.xml'
       - uses: dorny/test-reporter@v1
         if: always()
-        with: { name: '${{ matrix.project }}', path: '**/${{ matrix.project }}.trx', reporter: dotnet-trx }
+        with:
+          name: '${{ matrix.project }}'
+          path: '**/${{ matrix.project }}.trx'
+          reporter: dotnet-trx
 
   coverage-gate:
     if: github.event_name != 'schedule'
@@ -113,9 +130,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
-        with: { pattern: 'coverage-Platform.I2P.Domain.Tests', merge-multiple: true }
+        with:
+          pattern: 'coverage-Platform.I2P.Domain.Tests'
+          merge-multiple: true
       - uses: actions/download-artifact@v4
-        with: { pattern: 'coverage-Platform.I2P.Application.Tests', merge-multiple: true }
+        with:
+          pattern: 'coverage-Platform.I2P.Application.Tests'
+          merge-multiple: true
       - uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           filename: '*.cobertura.xml'
@@ -134,9 +155,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - uses: actions/download-artifact@v4
-        with: { name: build-output }
+        with:
+          name: build-output
       - name: Run ${{ matrix.connector }} contract tests (WireMock fixtures only)
         run: >
           dotnet test Platform.I2P/tests/Platform.I2P.Connectors.${{ matrix.connector }}.Tests/Platform.I2P.Connectors.${{ matrix.connector }}.Tests.csproj
@@ -144,7 +167,10 @@ jobs:
           --logger "trx;LogFileName=${{ matrix.connector }}-contract.trx"
       - uses: dorny/test-reporter@v1
         if: always()
-        with: { name: '${{ matrix.connector }} Contract Tests', path: '**/${{ matrix.connector }}-contract.trx', reporter: dotnet-trx }
+        with:
+          name: '${{ matrix.connector }} Contract Tests'
+          path: '**/${{ matrix.connector }}-contract.trx'
+          reporter: dotnet-trx
 
   # ---------- Integration: real SQL Server + RabbitMQ, isolated on purpose ----------
   integration:
@@ -154,7 +180,9 @@ jobs:
     services:
       sqlserver:
         image: mcr.microsoft.com/mssql/server:2022-latest
-        env: { ACCEPT_EULA: 'Y', SA_PASSWORD: '${{ secrets.CI_SQL_PASSWORD }}' }
+        env:
+          ACCEPT_EULA: 'Y'
+          SA_PASSWORD: '${{ secrets.CI_SQL_PASSWORD }}'
         ports: ['1433:1433']
         options: >-
           --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q 'SELECT 1' || exit 1"
@@ -166,9 +194,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - uses: actions/download-artifact@v4
-        with: { name: build-output }
+        with:
+          name: build-output
       - run: >
           dotnet test Platform.I2P/tests/Platform.I2P.Integration.Tests/Platform.I2P.Integration.Tests.csproj
           --no-build -c Release --logger "trx;LogFileName=integration.trx"
@@ -177,7 +207,10 @@ jobs:
           RabbitMq__Host: 'localhost'
       - uses: dorny/test-reporter@v1
         if: always()
-        with: { name: Integration, path: '**/integration.trx', reporter: dotnet-trx }
+        with:
+          name: Integration
+          path: '**/integration.trx'
+          reporter: dotnet-trx
 
   # ---------- Dependency + supply chain, runs on PR and weekly schedule ----------
   dependency-scan:
@@ -185,7 +218,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: dotnet restore ${{ env.SOLUTION }}
       - run: |
           set -e
@@ -194,7 +228,8 @@ jobs:
           echo "$OUT" | grep -q "has the following vulnerable packages" && exit 1 || true
       - uses: actions/dependency-review-action@v4
         if: github.event_name == 'pull_request'
-        with: { fail-on-severity: high }
+        with:
+          fail-on-severity: high
 
   # ---------- Reviewer nudge on security-sensitive diffs ----------
   security-flag:
