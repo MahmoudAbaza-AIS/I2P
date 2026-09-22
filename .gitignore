@@ -11,7 +11,6 @@
 *.nupkg
 **/packages/
 TestResults/
-Platform.Docs/
 *.DotSettings.user
 appsettings.*.local.json
 .env
