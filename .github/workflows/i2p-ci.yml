@@ -2,9 +2,9 @@ name: I2P CI/CD
 
 on:
   pull_request:
-    branches: [main, preproduction, dev]
+    branches: [main, ppr, dev]
   push:
-    branches: [main, preproduction, dev]
+    branches: [main, ppr, dev]
   schedule:
     - cron: '0 3 * * 1'   # weekly transitive dependency re-scan
 
@@ -24,10 +24,14 @@ permissions:
 
 jobs:
 
-  # ---------- Build once, format check, SonarQube quality gate (blocking) ----------
+  # ---------- Build once, format check, SonarQube quality gate (blocking once configured) ----------
   build:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,20 +49,38 @@ jobs:
           key: nuget-${{ hashFiles('**/*.csproj') }}
       - run: dotnet restore ${{ env.SOLUTION }}
       - run: dotnet format ${{ env.SOLUTION }} --verify-no-changes --severity warn
-      - run: dotnet tool install --global dotnet-sonarscanner
-      - name: SonarQube begin
+
+      - name: Warn if SonarQube is not fully configured
+        if: env.SONAR_TOKEN == '' || env.SONAR_HOST_URL == '' || env.SONAR_ORGANIZATION == ''
         run: >
-          dotnet-sonarscanner begin /k:"platform-i2p"
-          /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
-          /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}"
+          echo "::warning::SONAR_TOKEN, SONAR_HOST_URL, or SONAR_ORGANIZATION is missing.
+          SonarCloud requires all three (token, host URL, and organization key).
+          SonarQube analysis is being skipped for this run, this is a temporary
+          bypass, not a permanent exception."
+
+      - name: SonarQube begin
+        if: env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' && env.SONAR_ORGANIZATION != ''
+        run: |
+          dotnet tool install --global dotnet-sonarscanner
+          dotnet-sonarscanner begin \
+            /k:"platform-i2p" \
+            /o:"$SONAR_ORGANIZATION" \
+            /d:sonar.token="$SONAR_TOKEN" \
+            /d:sonar.host.url="$SONAR_HOST_URL"
+
       - run: dotnet build ${{ env.SOLUTION }} --no-restore -c Release /p:TreatWarningsAsErrors=true
+
       - name: SonarQube end
-        run: dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+        if: env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' && env.SONAR_ORGANIZATION != ''
+        run: dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
+
       - name: SonarQube quality gate (blocking)
+        if: env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' && env.SONAR_ORGANIZATION != ''
         uses: sonarsource/sonarqube-quality-gate-action@master
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - uses: actions/upload-artifact@v4
         with:
           name: build-output
@@ -87,7 +109,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ---------- Platform-layer tests: Domain, Application, Api, Architecture ----------
   platform-tests:
     if: github.event_name != 'schedule'
     needs: build
@@ -143,7 +164,6 @@ jobs:
           fail_below_min: true
           thresholds: '${{ env.COVERAGE_THRESHOLD }} ${{ env.COVERAGE_THRESHOLD }}'
 
-  # ---------- Connector contract tests, WireMock only, never a live vendor call ----------
   connector-contract-tests:
     if: github.event_name != 'schedule'
     needs: build
@@ -172,7 +192,6 @@ jobs:
           path: '**/${{ matrix.connector }}-contract.trx'
           reporter: dotnet-trx
 
-  # ---------- Integration: real SQL Server + RabbitMQ, isolated on purpose ----------
   integration:
     if: github.event_name != 'schedule'
     needs: build
@@ -214,7 +233,6 @@ jobs:
           path: '**/integration.trx'
           reporter: dotnet-trx
 
-  # ---------- Dependency + supply chain, runs on PR and weekly schedule ----------
   dependency-scan:
     runs-on: ubuntu-latest
     steps:
@@ -233,7 +251,6 @@ jobs:
         with:
           fail-on-severity: high
 
-  # ---------- Reviewer nudge on security-sensitive diffs ----------
   security-flag:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -254,11 +271,10 @@ jobs:
               });
             }
 
-  # ---------- Container image: built for any push to dev, preproduction, or main ----------
   docker-build:
     if: >
       github.event_name == 'push' &&
-      contains(fromJSON('["dev","preproduction","main"]'), github.ref_name)
+      contains(fromJSON('["dev","ppr","main"]'), github.ref_name)
     needs: [platform-tests, coverage-gate, connector-contract-tests, integration, dependency-scan]
     runs-on: ubuntu-latest
     outputs:
@@ -274,9 +290,6 @@ jobs:
           push: false
           tags: ${{ steps.tag.outputs.value }}
 
-  # ---------- Dev environment: fast feedback, single instance, no approval gate ----------
-  # Not held to the continuous-operation / redundant-failover standard, this
-  # environment exists for engineering iteration, not customer-facing use.
   deploy-dev:
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     needs: docker-build
@@ -287,34 +300,23 @@ jobs:
       - name: Deploy image to dev instance (direct recreate, no redundancy pair required)
         run: echo "Deploy ${{ needs.docker-build.outputs.image-tag }} to the dev instance and restart the service."
 
-  # ---------- Preproduction: dress rehearsal for the production rollout mechanism ----------
-  # Deliberately uses the SAME rolling-through-redundancy procedure as production,
-  # so the deployment mechanism itself gets validated here before it is ever run
-  # against a real customer environment. This is also where FAT/SAT/UAT activities
-  # and vendor-sandbox-backed connector validation should occur before a release
-  # is promoted to main. If a connector's protocol assumption was never confirmed
-  # against a real sandbox, preproduction is the last checkpoint before that gap
-  # reaches a customer, do not skip this stage under schedule pressure.
-  deploy-preproduction:
-    if: github.ref == 'refs/heads/preproduction' && github.event_name == 'push'
+  deploy-ppr:
+    if: github.ref == 'refs/heads/ppr' && github.event_name == 'push'
     needs: docker-build
     runs-on: ubuntu-latest
-    environment: preproduction
+    environment: ppr
     steps:
       - uses: actions/checkout@v4
-      - name: Rolling deploy through the preproduction redundancy pair
+      - name: Rolling deploy through the ppr redundancy pair
         run: |
-          echo "Deploying ${{ needs.docker-build.outputs.image-tag }} to the preproduction standby instance."
+          echo "Deploying ${{ needs.docker-build.outputs.image-tag }} to the ppr standby instance."
           echo "1. Take standby out of rotation."
           echo "2. Deploy image, wait for readiness/health check to pass."
-          echo "3. Synchronize state with the active preproduction instance."
+          echo "3. Synchronize state with the active ppr instance."
           echo "4. Cut traffic over to the newly deployed instance."
           echo "5. Monitor; on failure, fail back to the previous instance automatically."
           echo "6. Repeat for the now-idle former-primary instance."
 
-  # ---------- Production: manual approval required, rolling deploy only ----------
-  # Configure required reviewers on the 'production' environment in repo
-  # settings, this file intentionally does not auto-approve production.
   deploy-production:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: docker-build
@@ -332,11 +334,6 @@ jobs:
           echo "5. Monitor; on failure, fail back to the previous instance automatically."
           echo "6. Repeat for the now-idle former-primary instance."
 
-  # ---------- Single required status check for branch protection (PRs only) ----------
-  # Deliberately excludes docker-build and the three deploy jobs: those only
-  # run on push to a long-lived branch, so a PR-required check can never
-  # depend on them without deadlocking every PR opened against dev,
-  # preproduction, or main.
   all-checks:
     if: always() && github.event_name == 'pull_request'
     needs: [build, pr-metadata, secret-scan, platform-tests, coverage-gate, connector-contract-tests, integration, dependency-scan, security-flag]
