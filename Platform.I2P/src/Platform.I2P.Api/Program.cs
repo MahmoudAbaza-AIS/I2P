@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Asp.Versioning;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -51,6 +52,19 @@ public partial class Program
         builder.Services.AddLimsConnector(builder.Configuration);
 
         builder.Services.AddControllers();
+
+        // Configure API versioning
+        builder.Services.AddApiVersioning(options =>
+        {
+            options.DefaultApiVersion = new ApiVersion(1, 0);
+            options.AssumeDefaultVersionWhenUnspecified = true;
+            options.ReportApiVersions = true;
+            options.ApiVersionReader = ApiVersionReader.Combine(
+                new UrlSegmentApiVersionReader(),
+                new HeaderApiVersionReader("X-API-Version")
+            );
+        }).AddMvc();
+
         builder.Services.AddI2POpenApi();
         builder.Services.AddHealthChecks()
             .AddDbContextCheck<I2PDbContext>("sqlserver", tags: ["ready"]);
@@ -85,12 +99,11 @@ public partial class Program
         app.UseMiddleware<CorrelationIdMiddleware>();
         app.UseSerilogRequestLogging();
 
-        if (app.Environment.IsDevelopment())
-        {
-            app.UseI2POpenApi();
-        }
-
         app.UseHttpsRedirection();
+
+        // Map Scalar UI and OpenAPI BEFORE authentication middleware so they can bypass auth
+        app.UseI2POpenApi();
+
         app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
@@ -129,7 +142,8 @@ public partial class Program
             Predicate = check => check.Tags.Contains("ready")
         }).AllowAnonymous();
 
-        app.MapControllers().RequireAuthorization().RequireRateLimiting("i2p");
+        // Controllers require Reader policy by default, unless overridden by controller attributes
+        app.MapControllers().RequireAuthorization(I2PAuthPolicies.Reader).RequireRateLimiting("i2p");
 
         if (app.Configuration.GetValue("Database:ApplyMigrationsOnStartup", false))
         {
@@ -183,9 +197,8 @@ public partial class Program
     {
         services.AddAuthorization(options =>
         {
-            options.FallbackPolicy = new AuthorizationPolicyBuilder()
-                .RequireAuthenticatedUser()
-                .Build();
+            // Do NOT set FallbackPolicy or DefaultPolicy
+            // Instead rely on explicit [AllowAnonymous] and [Authorize] attributes
 
             options.AddPolicy(I2PAuthPolicies.Reader, policy =>
                 policy.RequireRole(
