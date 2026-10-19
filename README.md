@@ -148,7 +148,7 @@ Platform.I2P/
 ## Environments
 
 ```
-   feature branch ──PR──▶  dev  ──PR──▶  preproduction  ──PR──▶  main
+   feature branch ──PR──▶  dev  ──PR──▶  ppr (Preproduction) ──PR──▶  main
                             │                  │                  │
                       auto-deploy        rolling deploy      rolling deploy
                       no redundancy      through redundancy  through redundancy
@@ -159,8 +159,12 @@ Platform.I2P/
 | Environment | Branch | Deployment style | Purpose |
 |---|---|---|---|
 | Development | `dev` | Direct recreate, no approval | Engineering iteration, not held to the continuous-operation standard |
-| Preproduction | `preproduction` | Rolling, through redundancy pair | Dress rehearsal for the production rollout mechanism itself; FAT/SAT/UAT and real vendor-sandbox connector validation happen here |
+| Preproduction | `ppr` | Rolling, through redundancy pair | Dress rehearsal for the production rollout mechanism itself; FAT/SAT/UAT and real vendor-sandbox connector validation happen here |
 | Production | `main` | Rolling, through redundancy pair | Manual approval required via GitHub Environment protection rules; on-prem inside the customer's OT security zone by default |
+
+Promote changes in order: feature branch → PR to `dev` → PR from `dev` to `ppr` → PR from `ppr` to `main`. The workflow validates these source/target pairs and rejects fork-based promotion, including a fork branch named `dev` or `ppr`. Do not push directly to `ppr` or `main`; this applies to administrators and apps as well as contributors. The ruleset configuration below has no bypass actors. `dev` is not included in that ruleset and therefore is not protected against direct pushes by this configuration.
+
+Push-triggered CI and deployment jobs intentionally remain enabled: GitHub emits a `push` event after a PR merge, which is how post-merge build/deploy work starts. That event does not authorize direct pushes; enforcement comes from the active GitHub ruleset.
 
 Runtime, RTDB, Alarm Management, and Historian stay on-premises inside the customer's OT-segmented network by default, consistent with IEC 62443 / NIST SP 800-82 industrial security posture. Cloud (Azure, for stack-consistency with .NET/Entra ID/SQL Server) is limited to non-control-critical slices: central monitoring, license management, remote diagnostics.
 
@@ -168,12 +172,13 @@ Runtime, RTDB, Alarm Management, and Historian stay on-premises inside the custo
 
 ## CI/CD Pipeline
 
-`.github/workflows/i2p-ci.yml` runs on every PR into `dev`, `preproduction`, or `main`, plus a weekly scheduled dependency scan.
+`.github/workflows/i2p-ci.yml` runs on every PR into `dev`, `ppr`, or `main`, plus a weekly scheduled dependency scan. PR body edits and retargeting are revalidated. Review submission, edits, and dismissals re-evaluate sensitive-change confirmation.
 
 ```
 PR opened
    │
    ├─▶ pr-metadata ──────────── requirement ID referenced in PR description?
+   ├─▶ promotion-check ──────── same-repository feature→dev→ppr→main only?
    ├─▶ secret-scan ───────────── full git history, Gitleaks
    ├─▶ build ─────────────────── restore, format, build, SonarQube quality gate (blocking)
    │       │
@@ -182,18 +187,22 @@ PR opened
    │       ├─▶ connector-contract-tests ─ Sap/Mes/Cmms/Gis/Lims, WireMock only (matrix)
    │       └─▶ integration ────────── real SQL Server + RabbitMQ via service containers
    ├─▶ dependency-scan ────────── NuGet vulnerable + transitive package check
-   └─▶ security-flag ─────────── auto-comments if auth/security/secrets files changed
+   └─▶ sensitive-review ─────── explicit non-author approval and negative-path confirmation when needed
            │
            ▼
-     all-checks (required status check for branch protection)
+     all-checks (required by the main/ppr ruleset after admin activation)
 
-push to dev / preproduction / main
+push after merge to dev / ppr / main
    │
-   └─▶ docker-build ──▶ deploy-{dev|preproduction|production}
+   └─▶ docker-build ──▶ deploy-{dev|ppr|production}
                           (rolling through redundancy pair, manual approval on production)
 ```
 
-Every job traces back to a specific standard in `Platform.Docs/PR_Code_Standards_Checklist_v3_Complete.md`, nothing in the pipeline exists without a documented reason.
+The `all-checks` status fails closed unless every required PR job succeeds; failed, cancelled, skipped, and missing jobs are failures. The SonarQube quality gate is required for PRs targeting `ppr` or `main`, so those checks fail if `SONAR_TOKEN`, `SONAR_HOST_URL`, or `SONAR_ORGANIZATION` is not configured. Configure a least-privilege Sonar token as the `SONAR_TOKEN` and `SONAR_HOST_URL` Actions secrets and `SONAR_ORGANIZATION` Actions variable before rollout. Fork PRs cannot access repository secrets and will remain blocked from protected-branch promotion until their changes are submitted from a same-repository branch. Do not use `pull_request_target` to work around this. The latest inspected scheduled CI run also failed during restore because `System.Security.Cryptography.Pkcs` and `System.Security.Cryptography.Xml` package versions were reported vulnerable; resolve that dependency issue separately before expecting all required checks to pass.
+
+The current `deploy-*` jobs are echo-only stubs; they do not deploy or enforce the rollout behavior described above. The README describes the intended environment flow, not completed deployment automation.
+
+The referenced `Platform.Docs/PR_Code_Standards_Checklist_v3_Complete.md` and governing documents are not present in this checkout. Do not infer or invent their contents or requirement IDs.
 
 ---
 
@@ -240,9 +249,23 @@ Docker is required locally for `Platform.I2P.Integration.Tests` (Testcontainers 
 Every PR must:
 1. Reference a requirement ID from `PSRS-001` in its description (`FR-XXX-000` or `NFR-XXX-000`).
 2. Pass every job in `i2p-ci.yml`.
-3. Get explicit reviewer confirmation of negative-path test coverage if it touches auth, security, secrets, or identity code (the pipeline flags this automatically).
+3. Get an approval from a non-author reviewer for the current PR revision if it touches auth, security, secrets, identity, or encryption. The reviewer must include `Negative-path coverage: CONFIRMED` in the approval review body. A template checkbox or the workflow's file detection alone is not confirmation.
 
 Full standards: `Platform.Docs/PR_Code_Standards_Checklist_v3_Complete.md`.
+
+### Activating PR-only protection for `main` and `ppr`
+
+The committed file `.github/config/main-ppr-ruleset.json` is an importable configuration example, **not an active policy**. No repository settings were changed by committing it. A repository administrator must:
+
+1. Review the JSON and current repository rulesets first. Existing rulesets have not been verified; preserve and reconcile any existing rules rather than replacing them blindly.
+2. In **Settings → Rules → Rulesets**, import/create the branch ruleset from this file. Confirm it is active, targets exactly `refs/heads/main` and `refs/heads/ppr`, has an empty bypass list, requires one approval (not by the author or last pusher), dismisses stale approvals, resolves review threads, requires the `all-checks` status from GitHub Actions, and requires up-to-date branches. It blocks force pushes and deletion, and deliberately does not restrict updates (which would also block PR merges).
+3. Verify `all-checks` is available from the GitHub Actions integration and that the imported ruleset's required-check source is GitHub Actions. Confirm the effective policy for both refs in Settings after activation.
+4. Complete the workflow rollout through PRs: merge the policy workflow to `dev`, then PR `dev` → `ppr`, then PR `ppr` → `main`. A target branch must contain the workflow for its PR check to run. On `ppr`/`main`, activate the ruleset only after that branch has the workflow and its check is reported successfully. The first import should still be followed by an administrator's effective-policy review.
+5. Verify in an isolated scratch repository with the same active ruleset that a disposable empty commit cannot be pushed directly to its `main` or `ppr`, while a compliant PR can merge. In this repository, verify the active effective-ruleset display has the exact refs and empty bypass list; do not attempt a direct push here, even with an empty commit. These checks verify rejection behavior without risking changes to this repository's protected branch contents.
+
+GitHub branch rulesets can provide this enforcement only when the repository's plan supports rulesets for its visibility. For a private personal repository, GitHub Pro or higher is required. The available context did not verify the subscription, effective rulesets, or current settings, so protection remains unconfirmed until an administrator performs and verifies these steps. The ruleset requires review, checks, and no bypass actors, but a committed JSON file alone cannot block a Git push.
+
+The `dev` branch is intentionally outside this ruleset; protect it separately if direct pushes to `dev` must also be prohibited. Do not add an administrator/app bypass to make promotion easier.
 
 ## Governing Documents
 
