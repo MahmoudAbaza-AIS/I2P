@@ -680,6 +680,7 @@ public class OutboxAndMigrationTests : IAsyncLifetime
             sequence,
             exchange.PayloadJson,
             exchange.Timestamp.Value,
+            exchange.Timestamp.Origin.ToString(),
             exchange.Quality.Code.ToString(),
             exchange.SourceSystem,
             DateTimeOffset.UtcNow);

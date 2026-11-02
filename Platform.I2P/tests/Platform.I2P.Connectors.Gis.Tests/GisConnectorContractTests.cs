@@ -28,7 +28,9 @@ public class GisConnectorContractTests : IDisposable
     [Fact]
     public async Task Maps_Contract()
     {
-        var result = await _connector.GetFeaturesAsync(Guid.NewGuid(), "assets"); result.Should().ContainSingle(x => x.LayerName == "assets");
+        var result = await _connector.GetFeaturesAsync(Guid.NewGuid(), "assets");
+        result.Accepted.Should().ContainSingle(x => x.LayerName == "assets");
+        result.RejectedReasons.Should().BeEmpty();
     }
 
     public void Dispose() => _server.Stop();

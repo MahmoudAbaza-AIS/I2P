@@ -8,8 +8,14 @@ public sealed record PurchaseOrderDto(
     decimal Amount,
     string Currency,
     DateTimeOffset SourceTimestampUtc,
+    string TimestampOrigin,
     string Quality,
     string SourceSystem);
+
+/// <summary>ERP sync outcome: accepted records vs per-record mapping rejections (WP1b).</summary>
+public sealed record SyncErpPurchaseOrderResultDto(
+    IReadOnlyList<PurchaseOrderDto> Accepted,
+    IReadOnlyList<string> RejectedReasons);
 
 /// <summary>Per-connector health snapshot for platform diagnostics.</summary>
 public sealed record IntegrationHealthDto(

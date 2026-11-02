@@ -8,12 +8,11 @@ using Platform.I2P.Contracts.Dtos;
 using Platform.I2P.Contracts.Events;
 using Platform.I2P.Domain.Entities;
 using Platform.I2P.Domain.Exceptions;
-using Platform.I2P.Domain.Rules;
 
 namespace Platform.I2P.Application.Commands.SyncErpPurchaseOrder;
 
 public sealed record SyncErpPurchaseOrderCommand(Guid EndpointId, string? PurchaseOrderNumber = null)
-    : IRequest<IReadOnlyList<PurchaseOrderDto>>;
+    : IRequest<SyncErpPurchaseOrderResultDto>;
 
 public sealed class SyncErpPurchaseOrderValidator : AbstractValidator<SyncErpPurchaseOrderCommand>
 {
@@ -24,7 +23,7 @@ public sealed class SyncErpPurchaseOrderValidator : AbstractValidator<SyncErpPur
 }
 
 public sealed class SyncErpPurchaseOrderHandler
-    : IRequestHandler<SyncErpPurchaseOrderCommand, IReadOnlyList<PurchaseOrderDto>>
+    : IRequestHandler<SyncErpPurchaseOrderCommand, SyncErpPurchaseOrderResultDto>
 {
     private readonly IErpConnector _erpConnector;
     private readonly IIntegrationEndpointRepository _endpoints;
@@ -55,7 +54,7 @@ public sealed class SyncErpPurchaseOrderHandler
         _logger = logger;
     }
 
-    public async Task<IReadOnlyList<PurchaseOrderDto>> Handle(
+    public async Task<SyncErpPurchaseOrderResultDto> Handle(
         SyncErpPurchaseOrderCommand request,
         CancellationToken cancellationToken)
     {
@@ -72,7 +71,7 @@ public sealed class SyncErpPurchaseOrderHandler
             throw new InvalidOperationException($"Endpoint '{endpoint.Name}' is disabled.");
         }
 
-        var purchaseOrders = await _erpConnector.GetPurchaseOrdersAsync(
+        var batch = await _erpConnector.GetPurchaseOrdersAsync(
             request.EndpointId,
             request.PurchaseOrderNumber,
             cancellationToken);
@@ -81,7 +80,7 @@ public sealed class SyncErpPurchaseOrderHandler
         var correlationId = Guid.NewGuid();
         long sequence = DateTimeOffset.UtcNow.Ticks;
 
-        foreach (var po in purchaseOrders)
+        foreach (var po in batch.Accepted)
         {
             var payloadJson = JsonSerializer.Serialize(po);
             var payloadHash = Convert.ToHexString(
@@ -107,11 +106,6 @@ public sealed class SyncErpPurchaseOrderHandler
                 continue;
             }
 
-            if (IdempotencyChecker.IsDuplicate(exchange.IdempotencyKey, Array.Empty<string>()))
-            {
-                continue;
-            }
-
             await _exchanges.AddAsync(exchange, cancellationToken);
 
             var messageId = Guid.NewGuid();
@@ -126,12 +120,12 @@ public sealed class SyncErpPurchaseOrderHandler
                     SequenceNumber: sequence++,
                     exchange.PayloadJson,
                     exchange.Timestamp.Value,
+                    exchange.Timestamp.Origin.ToString(),
                     exchange.Quality.Code.ToString(),
                     exchange.SourceSystem,
                     DateTimeOffset.UtcNow),
                 cancellationToken);
 
-            // One SaveChanges for exchange + MassTransit outbox row (D-01 / WP1).
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             results.Add(new PurchaseOrderDto(
@@ -141,6 +135,7 @@ public sealed class SyncErpPurchaseOrderHandler
                 po.Amount,
                 po.Currency,
                 po.Timestamp.Value,
+                po.Timestamp.Origin.ToString(),
                 po.Quality.Code.ToString(),
                 _erpConnector.ConnectorName));
         }
@@ -148,10 +143,10 @@ public sealed class SyncErpPurchaseOrderHandler
         await _auditWriter.WriteAsync(
             "ManualSyncCompleted",
             _user.Subject,
-            $"ERP sync for endpoint {endpoint.Id} tenant {endpoint.TenantId} results={results.Count}",
+            $"ERP sync endpoint={endpoint.Id} tenant={endpoint.TenantId} accepted={results.Count} rejected={batch.RejectedReasons.Count}",
             cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return results;
+        return new SyncErpPurchaseOrderResultDto(results, batch.RejectedReasons);
     }
 }

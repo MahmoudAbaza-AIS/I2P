@@ -28,7 +28,9 @@ public class LimsConnectorContractTests : IDisposable
     [Fact]
     public async Task Maps_Contract()
     {
-        var result = await _connector.GetSamplesAsync(Guid.NewGuid()); result.Should().ContainSingle(x => x.Analyte == "pH");
+        var result = await _connector.GetSamplesAsync(Guid.NewGuid());
+        result.Accepted.Should().ContainSingle(x => x.Analyte == "pH");
+        result.RejectedReasons.Should().BeEmpty();
     }
 
     public void Dispose() => _server.Stop();

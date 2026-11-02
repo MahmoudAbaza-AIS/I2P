@@ -1,13 +1,43 @@
 using Platform.I2P.Domain.Entities;
+using Platform.I2P.Domain.Exceptions;
 using Platform.I2P.Domain.ValueObjects;
 
 namespace Platform.I2P.Application.Ports;
+
+/// <summary>Accepted records plus per-record rejection reasons (no silent fabrication).</summary>
+public sealed record ConnectorBatchResult<T>(
+    IReadOnlyList<T> Accepted,
+    IReadOnlyList<string> RejectedReasons);
+
+public static class ConnectorBatchMapper
+{
+    public static ConnectorBatchResult<TOut> MapAll<TIn, TOut>(
+        IEnumerable<TIn> sources,
+        Func<TIn, TOut> map)
+    {
+        var accepted = new List<TOut>();
+        var rejected = new List<string>();
+        foreach (var src in sources)
+        {
+            try
+            {
+                accepted.Add(map(src));
+            }
+            catch (RecordMappingException ex)
+            {
+                rejected.Add(ex.Message);
+            }
+        }
+
+        return new ConnectorBatchResult<TOut>(accepted, rejected);
+    }
+}
 
 public interface IErpConnector
 {
     string ConnectorName { get; }
     Task<ConnectorHealth> GetHealthAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<PurchaseOrderData>> GetPurchaseOrdersAsync(
+    Task<ConnectorBatchResult<PurchaseOrderData>> GetPurchaseOrdersAsync(
         Guid endpointId,
         string? purchaseOrderNumber = null,
         CancellationToken cancellationToken = default);
@@ -17,7 +47,7 @@ public interface IMesConnector
 {
     string ConnectorName { get; }
     Task<ConnectorHealth> GetHealthAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<MesWorkOrderData>> GetWorkOrdersAsync(
+    Task<ConnectorBatchResult<MesWorkOrderData>> GetWorkOrdersAsync(
         Guid endpointId,
         CancellationToken cancellationToken = default);
 }
@@ -26,7 +56,7 @@ public interface ICmmsConnector
 {
     string ConnectorName { get; }
     Task<ConnectorHealth> GetHealthAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<CmmsWorkOrderData>> GetWorkOrdersAsync(
+    Task<ConnectorBatchResult<CmmsWorkOrderData>> GetWorkOrdersAsync(
         Guid endpointId,
         CancellationToken cancellationToken = default);
 }
@@ -35,7 +65,7 @@ public interface IGisConnector
 {
     string ConnectorName { get; }
     Task<ConnectorHealth> GetHealthAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<GisFeatureData>> GetFeaturesAsync(
+    Task<ConnectorBatchResult<GisFeatureData>> GetFeaturesAsync(
         Guid endpointId,
         string layerName,
         CancellationToken cancellationToken = default);
@@ -45,7 +75,7 @@ public interface ILimsConnector
 {
     string ConnectorName { get; }
     Task<ConnectorHealth> GetHealthAsync(CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<LimsSampleData>> GetSamplesAsync(
+    Task<ConnectorBatchResult<LimsSampleData>> GetSamplesAsync(
         Guid endpointId,
         CancellationToken cancellationToken = default);
 }
