@@ -1,0 +1,14 @@
+{
+  "apiBaseUrl": "/api/v1",
+  "oidc": {
+    "authority": "",
+    "clientId": "",
+    "audience": "platform-i2p",
+    "scopes": "openid profile roles",
+    "requireHttps": false
+  },
+  "features": {
+    "realtimeDashboard": false,
+    "trendCharts": false
+  }
+}
