@@ -11,6 +11,7 @@ public sealed record ErpDataReceivedEvent(
     long SequenceNumber,
     string PayloadJson,
     DateTimeOffset SourceTimestampUtc,
+    string TimestampOrigin,
     string Quality,
     string SourceSystem,
     DateTimeOffset PublishedAtUtc);

@@ -20,7 +20,8 @@ public sealed class SapConnectorOptions
 }
 
 /// <summary>
-/// Mock-friendly SAP OData-style connector. Vendor SDK types stay inside this project only.
+/// SAP OData-style HTTP connector. Vendor DTO types stay inside this project only.
+/// Incomplete source records are rejected — never fabricated (WP1b / N-01).
 /// </summary>
 public sealed class SapConnector : IErpConnector
 {
@@ -52,7 +53,7 @@ public sealed class SapConnector : IErpConnector
             : new ConnectorHealth(false, "Unhealthy", $"HTTP {(int)response.StatusCode}");
     }
 
-    public async Task<IReadOnlyList<PurchaseOrderData>> GetPurchaseOrdersAsync(
+    public async Task<ConnectorBatchResult<PurchaseOrderData>> GetPurchaseOrdersAsync(
         Guid endpointId,
         string? purchaseOrderNumber = null,
         CancellationToken cancellationToken = default)
@@ -70,14 +71,25 @@ public sealed class SapConnector : IErpConnector
         var payload = await JsonSerializer.DeserializeAsync<SapPurchaseOrderResponse>(
             stream,
             SapJson.Options,
-            cancellationToken) ?? new SapPurchaseOrderResponse();
+            cancellationToken)
+            ?? throw new InvalidOperationException(
+                "SAP purchase-order response body was empty or could not be deserialized.");
+
+        var batch = ConnectorBatchMapper.MapAll(payload.Value, SapToInternalMapper.ToPurchaseOrder);
 
         _logger.LogInformation(
-            "Fetched {Count} SAP purchase orders for endpoint {EndpointId}",
+            "SAP purchase orders for endpoint {EndpointId}: source={SourceCount} accepted={Accepted} rejected={Rejected}",
+            endpointId,
             payload.Value.Count,
-            endpointId);
+            batch.Accepted.Count,
+            batch.RejectedReasons.Count);
 
-        return payload.Value.Select(SapToInternalMapper.ToPurchaseOrder).ToList();
+        foreach (var reason in batch.RejectedReasons)
+        {
+            _logger.LogWarning("SAP record rejected: {Reason}", reason);
+        }
+
+        return batch;
     }
 }
 
@@ -130,21 +142,36 @@ internal static class SapToInternalMapper
 {
     public static PurchaseOrderData ToPurchaseOrder(SapPurchaseOrderDto source)
     {
-        var number = source.Ebeln ?? throw new InvalidOperationException("SAP PO missing EBELN.");
+        var number = string.IsNullOrWhiteSpace(source.Ebeln)
+            ? throw new Platform.I2P.Domain.Exceptions.RecordMappingException("SAP PO missing required EBELN.")
+            : source.Ebeln;
+
+        if (string.IsNullOrWhiteSpace(source.Lifnr))
+        {
+            throw new Platform.I2P.Domain.Exceptions.RecordMappingException(
+                $"SAP PO '{number}' missing required vendor (LIFNR).");
+        }
+
+        if (string.IsNullOrWhiteSpace(source.Waers))
+        {
+            throw new Platform.I2P.Domain.Exceptions.RecordMappingException(
+                $"SAP PO '{number}' missing required currency (WAERS).");
+        }
+
         var timestamp = source.Aedat is null
             ? OperationalTimestamp.FromPlatform()
             : OperationalTimestamp.FromSource(source.Aedat.Value);
 
         var quality = Enum.TryParse<QualityCode>(source.Quality, true, out var code)
             ? Quality.FromCode(code)
-            : Quality.Good();
+            : Quality.Unknown("SourceDidNotProvideQuality");
 
         return new PurchaseOrderData(
             number,
             number,
-            source.Lifnr ?? "UNKNOWN",
+            source.Lifnr,
             source.Netwr,
-            source.Waers ?? "USD",
+            source.Waers,
             timestamp,
             quality);
     }

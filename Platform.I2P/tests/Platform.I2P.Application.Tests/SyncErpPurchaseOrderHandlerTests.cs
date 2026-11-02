@@ -27,16 +27,18 @@ public class SyncErpPurchaseOrderHandlerTests
         var erp = Substitute.For<IErpConnector>();
         erp.ConnectorName.Returns("SAP");
         erp.GetPurchaseOrdersAsync(endpoint.Id, null, Arg.Any<CancellationToken>())
-            .Returns([
-                new PurchaseOrderData(
-                    "PO-100",
-                    "PO-100",
-                    "V1",
-                    10m,
-                    "USD",
-                    OperationalTimestamp.FromSource(DateTimeOffset.UtcNow),
-                    Quality.Good())
-            ]);
+            .Returns(new ConnectorBatchResult<PurchaseOrderData>(
+                [
+                    new PurchaseOrderData(
+                        "PO-100",
+                        "PO-100",
+                        "V1",
+                        10m,
+                        "USD",
+                        OperationalTimestamp.FromSource(DateTimeOffset.UtcNow),
+                        Quality.Good())
+                ],
+                Array.Empty<string>()));
 
         var endpoints = Substitute.For<IIntegrationEndpointRepository>();
         endpoints.GetByIdForTenantAsync(endpoint.Id, "tenant-a", Arg.Any<CancellationToken>()).Returns(endpoint);
@@ -60,7 +62,9 @@ public class SyncErpPurchaseOrderHandlerTests
 
         var result = await handler.Handle(new SyncErpPurchaseOrderCommand(endpoint.Id), CancellationToken.None);
 
-        result.Should().HaveCount(1);
+        result.Accepted.Should().HaveCount(1);
+        result.RejectedReasons.Should().BeEmpty();
+        result.Accepted[0].TimestampOrigin.Should().Be(nameof(TimestampOrigin.Source));
         await exchanges.Received(1).AddAsync(Arg.Any<ExchangeRecord>(), Arg.Any<CancellationToken>());
         await publisher.Received(1).PublishAsync(
             Arg.Any<Platform.I2P.Contracts.Events.ErpDataReceivedEvent>(),
@@ -97,16 +101,18 @@ public class SyncErpPurchaseOrderHandlerTests
         var erp = Substitute.For<IErpConnector>();
         erp.ConnectorName.Returns("SAP");
         erp.GetPurchaseOrdersAsync(endpoint.Id, null, Arg.Any<CancellationToken>())
-            .Returns([
-                new PurchaseOrderData(
-                    "PO-100",
-                    "PO-100",
-                    "V1",
-                    10m,
-                    "USD",
-                    OperationalTimestamp.FromPlatform(),
-                    Quality.Good())
-            ]);
+            .Returns(new ConnectorBatchResult<PurchaseOrderData>(
+                [
+                    new PurchaseOrderData(
+                        "PO-100",
+                        "PO-100",
+                        "V1",
+                        10m,
+                        "USD",
+                        OperationalTimestamp.FromPlatform(),
+                        Quality.Good())
+                ],
+                Array.Empty<string>()));
 
         var endpoints = Substitute.For<IIntegrationEndpointRepository>();
         endpoints.GetByIdForTenantAsync(endpoint.Id, "tenant-a", Arg.Any<CancellationToken>()).Returns(endpoint);
@@ -127,9 +133,8 @@ public class SyncErpPurchaseOrderHandlerTests
 
         var result = await handler.Handle(new SyncErpPurchaseOrderCommand(endpoint.Id), CancellationToken.None);
 
-        result.Should().BeEmpty();
+        result.Accepted.Should().BeEmpty();
         await exchanges.DidNotReceive().AddAsync(Arg.Any<ExchangeRecord>(), Arg.Any<CancellationToken>());
-        // Audit completion still commits once at end.
         await uow.Received().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }
