@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/ng-openapi-gen/ng-openapi-gen-schema.json",
+  "input": "openapi/platform-i2p.v1.json",
+  "output": "src/app/generated/api",
+  "ignoreUnusedModels": false,
+  "removeStaleFiles": true,
+  "enumStyle": "pascal",
+  "module": false,
+  "indexFile": true,
+  "services": false
+}

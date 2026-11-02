@@ -1,0 +1,73 @@
+{
+  "shell": {
+    "appName": "Platform UI",
+    "skipToMain": "Skip to main content",
+    "toggleNav": "Toggle navigation",
+    "toolbarNav": "Toolbar",
+    "mainNav": "Main navigation",
+    "language": "Language",
+    "theme": "Theme",
+    "login": "Sign in",
+    "logout": "Sign out",
+    "authUnconfiguredBanner": "Identity provider is not configured (D8 pending). Shell and UI foundation are available; protected API calls will return unauthorized until OIDC authority and client ID are set in config.json.",
+    "sections": {
+      "i2p": "Integration (I2P)"
+    }
+  },
+  "common": {
+    "error": {
+      "heading": "Something went wrong",
+      "generic": "An unexpected error occurred. Please try again.",
+      "unauthorized": "You are not authorised to perform this action.",
+      "forbidden": "Access denied.",
+      "notFound": "The requested resource was not found.",
+      "serverError": "A server error occurred. Please contact support."
+    },
+    "loading": "Loading…",
+    "retry": "Retry",
+    "noData": "No data available"
+  },
+  "i2p": {
+    "health": {
+      "title": "Integration Health",
+      "subtitle": "Real-time health status of all registered integration connectors.",
+      "loading": "Loading health status…",
+      "tableAriaLabel": "Integration connector health status",
+      "col": {
+        "connector": "Connector",
+        "status": "Status",
+        "checkedAt": "Last Checked (UTC)",
+        "detail": "Detail"
+      },
+      "empty": {
+        "heading": "No connectors registered",
+        "message": "No integration connectors have been registered yet."
+      }
+    },
+    "exchanges": {
+      "title": "Exchange History",
+      "subtitle": "Paginated history of data exchanges received by the integration layer.",
+      "loading": "Loading exchange history…",
+      "tableAriaLabel": "Exchange history records",
+      "paginatorAriaLabel": "Exchange history pagination",
+      "col": {
+        "externalId": "External ID",
+        "sourceSystem": "Source System",
+        "quality": "Quality",
+        "sourceTimestamp": "Source Timestamp (UTC)",
+        "receivedAt": "Received At (UTC)"
+      },
+      "empty": {
+        "heading": "No exchanges found",
+        "message": "There are no exchange records matching your query."
+      }
+    }
+  },
+  "auth": {
+    "configRequired": {
+      "heading": "Authentication not configured",
+      "message": "The application has not been configured with an identity provider. Update /config.json with the OIDC authority and client ID.",
+      "docsLink": "View deployment documentation"
+    }
+  }
+}
