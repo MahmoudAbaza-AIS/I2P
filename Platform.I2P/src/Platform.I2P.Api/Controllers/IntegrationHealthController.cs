@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +9,8 @@ using Platform.I2P.Application.Security;
 namespace Platform.I2P.Api.Controllers;
 
 [ApiController]
-[Route("api/integration/health")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/integration/health")]
 public sealed class IntegrationHealthController : ControllerBase
 {
     public const int ResponseTimeBudgetMs = 2000;
@@ -22,8 +24,18 @@ public sealed class IntegrationHealthController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>
+    /// Get real-time health status of all connectors and infrastructure dependencies
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Integration health status including connector availability and response times</returns>
     [HttpGet]
     [Authorize(Policy = I2PAuthPolicies.Reader)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
@@ -37,3 +49,4 @@ public sealed class IntegrationHealthController : ControllerBase
         return Ok(result);
     }
 }
+

@@ -3,13 +3,16 @@ name: I2P CI/CD
 on:
   pull_request:
     branches: [main, ppr, dev]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
   push:
     branches: [main, ppr, dev]
   schedule:
     - cron: '0 3 * * 1'   # weekly transitive dependency re-scan
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:
@@ -19,67 +22,142 @@ env:
 
 permissions:
   contents: read
-  pull-requests: write
-  checks: write
+  pull-requests: read
 
 jobs:
 
-  # ---------- Build once, format check, SonarQube quality gate (blocking) ----------
+  # ---------- Build once, format check, SonarQube quality gate ----------
   build:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && github.event_name != 'pull_request_review'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '17' }
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
           key: nuget-${{ hashFiles('**/*.csproj') }}
       - run: dotnet restore ${{ env.SOLUTION }}
       - run: dotnet format ${{ env.SOLUTION }} --verify-no-changes --severity warn
-      - run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: Check SonarQube configuration
+        id: sonar-config
+        uses: actions/github-script@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        with:
+          script: |
+            const configured = Boolean(
+              process.env.SONAR_TOKEN &&
+              process.env.SONAR_HOST_URL &&
+              process.env.SONAR_ORGANIZATION
+            );
+            core.setOutput("configured", String(configured));
+            const protectedTarget = ["main", "ppr"].includes(
+              context.payload.pull_request?.base.ref
+            );
+            if (!configured && context.eventName === "pull_request" && protectedTarget) {
+              core.setFailed("SonarQube is required for PRs targeting main or ppr. Configure SONAR_TOKEN, SONAR_HOST_URL, and SONAR_ORGANIZATION.");
+            } else if (!configured) {
+              core.warning("SonarQube is not configured; analysis is skipped for this non-protected PR or non-PR run.");
+            }
+
       - name: SonarQube begin
-        run: >
-          dotnet-sonarscanner begin /k:"platform-i2p"
-          /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
-          /d:sonar.host.url="${{ secrets.SONAR_HOST_URL }}"
+        if: steps.sonar-config.outputs.configured == 'true'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        run: |
+          dotnet tool install --global dotnet-sonarscanner
+          dotnet-sonarscanner begin \
+            /k:"platform-i2p" \
+            /o:"$SONAR_ORGANIZATION" \
+            /d:sonar.token="$SONAR_TOKEN" \
+            /d:sonar.host.url="$SONAR_HOST_URL"
+
       - run: dotnet build ${{ env.SOLUTION }} --no-restore -c Release /p:TreatWarningsAsErrors=true
+
       - name: SonarQube end
-        run: dotnet-sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+        if: steps.sonar-config.outputs.configured == 'true'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
+
       - name: SonarQube quality gate (blocking)
-        uses: sonarsource/sonarqube-quality-gate-action@master
+        if: steps.sonar-config.outputs.configured == 'true'
+        uses: sonarsource/sonarqube-quality-gate-action@v1.2.0
         timeout-minutes: 5
-        env: { SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} }
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - uses: actions/upload-artifact@v4
-        with: { name: build-output, path: '**/bin/Release/**', retention-days: 1 }
+        with:
+          name: build-output
+          path: '**/bin/Release/**'
+          retention-days: 1
 
   pr-metadata:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
       - uses: actions/github-script@v7
         with:
           script: |
-            const body = context.payload.pull_request.body || "";
-            if (!/\b(FR|NFR)-[A-Z]{2,6}-\d{2,4}\b/.test(body)) {
-              core.setFailed("PR description must reference a requirement ID (e.g. FR-API-041).");
+            const { hasRequirementReference } = require("./.github/scripts/pr-policy.cjs");
+            if (!hasRequirementReference(context.payload.pull_request.body)) {
+              core.setFailed("PR description must reference an applicable FR-XXX-000 or NFR-XXX-000 requirement ID.");
             }
 
-  secret-scan:
+  promotion-check:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
-        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { isAllowedPromotion } = require("./.github/scripts/pr-policy.cjs");
+            const pullRequest = context.payload.pull_request;
+            const headRepo = pullRequest.head.repo?.full_name;
+            const baseRepo = pullRequest.base.repo.full_name;
+            if (!isAllowedPromotion({
+              headRepo,
+              baseRepo,
+              headRef: pullRequest.head.ref,
+              baseRef: pullRequest.base.ref
+            })) {
+              core.setFailed("Promotion must follow same-repository feature→dev→ppr→main; fork branches and out-of-order promotions are not allowed.");
+            }
 
-  # ---------- Platform-layer tests: Domain, Application, Api, Architecture ----------
+  secret-scan:
+    if: github.event_name != 'pull_request_review'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   platform-tests:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && github.event_name != 'pull_request_review'
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -93,38 +171,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - uses: actions/download-artifact@v4
-        with: { name: build-output }
+        with:
+          name: build-output
       - run: >
           dotnet test Platform.I2P/tests/${{ matrix.project }}/${{ matrix.project }}.csproj
           --no-build -c Release
           /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=../../coverage/${{ matrix.project }}.
           --logger "trx;LogFileName=${{ matrix.project }}.trx"
       - uses: actions/upload-artifact@v4
-        with: { name: coverage-${{ matrix.project }}, path: '**/coverage/${{ matrix.project }}.cobertura.xml' }
+        with:
+          name: coverage-${{ matrix.project }}
+          path: '**/coverage/${{ matrix.project }}.cobertura.xml'
       - uses: dorny/test-reporter@v1
         if: always()
-        with: { name: '${{ matrix.project }}', path: '**/${{ matrix.project }}.trx', reporter: dotnet-trx }
+        with:
+          name: ${{ matrix.project }}
+          path: '**/${{ matrix.project }}.trx'
+          reporter: dotnet-trx
 
   coverage-gate:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && github.event_name != 'pull_request_review'
     needs: platform-tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
-        with: { pattern: 'coverage-Platform.I2P.Domain.Tests', merge-multiple: true }
+        with:
+          pattern: coverage-Platform.I2P.Domain.Tests
+          merge-multiple: true
       - uses: actions/download-artifact@v4
-        with: { pattern: 'coverage-Platform.I2P.Application.Tests', merge-multiple: true }
+        with:
+          pattern: coverage-Platform.I2P.Application.Tests
+          merge-multiple: true
       - uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           filename: '*.cobertura.xml'
           fail_below_min: true
           thresholds: '${{ env.COVERAGE_THRESHOLD }} ${{ env.COVERAGE_THRESHOLD }}'
 
-  # ---------- Connector contract tests, WireMock only, never a live vendor call ----------
   connector-contract-tests:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && github.event_name != 'pull_request_review'
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -134,9 +222,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - uses: actions/download-artifact@v4
-        with: { name: build-output }
+        with:
+          name: build-output
       - name: Run ${{ matrix.connector }} contract tests (WireMock fixtures only)
         run: >
           dotnet test Platform.I2P/tests/Platform.I2P.Connectors.${{ matrix.connector }}.Tests/Platform.I2P.Connectors.${{ matrix.connector }}.Tests.csproj
@@ -144,80 +234,115 @@ jobs:
           --logger "trx;LogFileName=${{ matrix.connector }}-contract.trx"
       - uses: dorny/test-reporter@v1
         if: always()
-        with: { name: '${{ matrix.connector }} Contract Tests', path: '**/${{ matrix.connector }}-contract.trx', reporter: dotnet-trx }
+        with:
+          name: ${{ matrix.connector }} Contract Tests
+          path: '**/${{ matrix.connector }}-contract.trx'
+          reporter: dotnet-trx
 
-  # ---------- Integration: real SQL Server + RabbitMQ, isolated on purpose ----------
   integration:
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && github.event_name != 'pull_request_review'
     needs: build
     runs-on: ubuntu-latest
     services:
       sqlserver:
         image: mcr.microsoft.com/mssql/server:2022-latest
-        env: { ACCEPT_EULA: 'Y', SA_PASSWORD: '${{ secrets.CI_SQL_PASSWORD }}' }
-        ports: ['1433:1433']
+        env:
+          ACCEPT_EULA: 'Y'
+          SA_PASSWORD: ${{ secrets.CI_SQL_PASSWORD }}
+        ports:
+          - 1433:1433
         options: >-
           --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $SA_PASSWORD -Q 'SELECT 1' || exit 1"
           --health-interval=10s --health-retries=10
       rabbitmq:
         image: rabbitmq:3-management
-        ports: ['5672:5672']
+        ports:
+          - 5672:5672
         options: --health-cmd="rabbitmq-diagnostics -q ping" --health-interval=10s --health-retries=10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - uses: actions/download-artifact@v4
-        with: { name: build-output }
+        with:
+          name: build-output
       - run: >
           dotnet test Platform.I2P/tests/Platform.I2P.Integration.Tests/Platform.I2P.Integration.Tests.csproj
           --no-build -c Release --logger "trx;LogFileName=integration.trx"
         env:
-          ConnectionStrings__I2PDatabase: 'Server=localhost,1433;Database=I2P_CI;User Id=sa;Password=${{ secrets.CI_SQL_PASSWORD }};TrustServerCertificate=True;'
-          RabbitMq__Host: 'localhost'
+          ConnectionStrings__I2PDatabase: Server=localhost,1433;Database=I2P_CI;User Id=sa;Password=${{ secrets.CI_SQL_PASSWORD }};TrustServerCertificate=True;
+          RabbitMq__Host: localhost
       - uses: dorny/test-reporter@v1
         if: always()
-        with: { name: Integration, path: '**/integration.trx', reporter: dotnet-trx }
+        with:
+          name: Integration
+          path: '**/integration.trx'
+          reporter: dotnet-trx
 
-  # ---------- Dependency + supply chain, runs on PR and weekly schedule ----------
   dependency-scan:
+    if: github.event_name != 'pull_request_review'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
-        with: { dotnet-version: ${{ env.DOTNET_VERSION }} }
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - run: dotnet restore ${{ env.SOLUTION }}
       - run: |
           set -e
           OUT=$(dotnet list ${{ env.SOLUTION }} package --vulnerable --include-transitive 2>&1)
           echo "$OUT"
-          echo "$OUT" | grep -q "has the following vulnerable packages" && exit 1 || true
+          if echo "$OUT" | grep -q "has the following vulnerable packages"; then
+            echo "Vulnerable packages were found." >&2
+            exit 1
+          fi
       - uses: actions/dependency-review-action@v4
         if: github.event_name == 'pull_request'
-        with: { fail-on-severity: high }
+        with:
+          fail-on-severity: high
 
-  # ---------- Reviewer nudge on security-sensitive diffs ----------
-  security-flag:
-    if: github.event_name == 'pull_request'
+  sensitive-review:
+    if: >
+      (github.event_name == 'pull_request' || github.event_name == 'pull_request_review') &&
+      contains(fromJSON('["main","ppr","dev"]'), github.event.pull_request.base.ref)
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
       - uses: actions/github-script@v7
         with:
           script: |
+            const {
+              hasIndependentNegativePathApproval,
+              isSensitiveFile
+            } = require("./.github/scripts/pr-policy.cjs");
+            const pullRequest = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            const currentHead = pullRequest.data.head.sha;
             const files = await github.paginate(github.rest.pulls.listFiles, {
               owner: context.repo.owner, repo: context.repo.repo,
               pull_number: context.payload.pull_request.number
             });
-            const hit = files.filter(f => /Auth|Security|Secrets|Identity|Encrypt/i.test(f.filename));
-            if (hit.length) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner, repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
-                body: `Security-sensitive files changed:\n${hit.map(f => `- ${f.filename}`).join("\n")}\n\nConfirm negative-path tests exist before approving.`
+            if (files.some(file => isSensitiveFile(file.filename))) {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number
               });
+              if (!hasIndependentNegativePathApproval(
+                reviews,
+                pullRequest.data.user.login,
+                currentHead
+              )) {
+                core.setFailed("Sensitive changes require a non-author human approval on the current head with `Negative-path coverage: CONFIRMED` in the review body.");
+              }
             }
 
-  # ---------- Container image: built for any push to dev, ppr, or main ----------
   docker-build:
     if: >
       github.event_name == 'push' &&
@@ -237,9 +362,6 @@ jobs:
           push: false
           tags: ${{ steps.tag.outputs.value }}
 
-  # ---------- Dev environment: fast feedback, single instance, no approval gate ----------
-  # Not held to the continuous-operation / redundant-failover standard, this
-  # environment exists for engineering iteration, not customer-facing use.
   deploy-dev:
     if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
     needs: docker-build
@@ -250,15 +372,6 @@ jobs:
       - name: Deploy image to dev instance (direct recreate, no redundancy pair required)
         run: echo "Deploy ${{ needs.docker-build.outputs.image-tag }} to the dev instance and restart the service."
 
-  # ---------- ppr: dress rehearsal for the production rollout mechanism ----------
-  # Deliberately uses the SAME rolling-through-redundancy procedure as production,
-  # so the deployment mechanism itself gets validated here before it is ever run
-  # against a real customer environment. This is also where FAT/SAT/UAT activities
-  # and vendor-sandbox-backed connector validation should occur before a release
-  # is promoted to main. If a connector's protocol assumption (OData vs IDoc for
-  # SAP, OPC-UA vs REST/B2MML for MES, etc.) was never confirmed against a real
-  # sandbox, ppr is the last checkpoint before that gap reaches a
-  # customer, do not skip this stage under schedule pressure.
   deploy-ppr:
     if: github.ref == 'refs/heads/ppr' && github.event_name == 'push'
     needs: docker-build
@@ -276,9 +389,6 @@ jobs:
           echo "5. Monitor; on failure, fail back to the previous instance automatically."
           echo "6. Repeat for the now-idle former-primary instance."
 
-  # ---------- Production: manual approval required, rolling deploy only ----------
-  # Configure required reviewers on the 'production' environment in repo
-  # settings, this file intentionally does not auto-approve production.
   deploy-production:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: docker-build
@@ -296,18 +406,100 @@ jobs:
           echo "5. Monitor; on failure, fail back to the previous instance automatically."
           echo "6. Repeat for the now-idle former-primary instance."
 
-  # ---------- Single required status check for branch protection (PRs only) ----------
-  # Deliberately excludes docker-build and the three deploy jobs: those only
-  # run on push to a long-lived branch, so a PR-required check can never
-  # depend on them without deadlocking every PR opened against dev,
-  # ppr, or main.
   all-checks:
-    if: always() && github.event_name == 'pull_request'
-    needs: [build, pr-metadata, secret-scan, platform-tests, coverage-gate, connector-contract-tests, integration, dependency-scan, security-flag]
+    if: >
+      always() &&
+      contains(fromJSON('["pull_request","pull_request_review"]'), github.event_name) &&
+      contains(fromJSON('["main","ppr","dev"]'), github.event.pull_request.base.ref)
+    needs: [build, pr-metadata, promotion-check, secret-scan, platform-tests, coverage-gate, connector-contract-tests, integration, dependency-scan, sensitive-review]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
     steps:
-      - run: |
-          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
-            echo "One or more required checks failed." && exit 1
-          fi
-          echo "All standards satisfied."
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - name: Aggregate required PR jobs
+        id: aggregate-pr
+        if: github.event_name == 'pull_request'
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const { failedRequiredJobs, requiredPullRequestJobs } =
+            require("./.github/scripts/pr-policy.cjs");
+          const needs = JSON.parse(process.env.NEEDS_JSON);
+          const failed = failedRequiredJobs(needs, requiredPullRequestJobs);
+          const state = failed.length === 0 ? "success" : "failure";
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `state=${state}\n`);
+          if (failed.length) {
+            console.error(`Required jobs did not succeed: ${failed.join(", ")}`);
+            process.exitCode = 1;
+          }
+          NODE
+      - name: Publish required status on the current PR head
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          PR_CI_STATE: ${{ steps.aggregate-pr.outputs.state || 'failure' }}
+          SENSITIVE_REVIEW_RESULT: ${{ needs.sensitive-review.result }}
+        with:
+          script: |
+            const pullRequestEvent = context.payload.pull_request;
+            const current = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullRequestEvent.number
+            });
+            const stale = current.data.head.sha !== pullRequestEvent.head.sha;
+            const headSha = current.data.head.sha;
+            let ciState = process.env.PR_CI_STATE;
+            if (context.eventName === "pull_request") {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: headSha,
+                state: ciState,
+                context: "pr-ci-checks",
+                description: ciState === "success"
+                  ? "All required PR CI jobs succeeded."
+                  : "One or more required PR CI jobs failed or did not run."
+              });
+            } else {
+              const statuses = await github.paginate(
+                github.rest.repos.listCommitStatusesForRef,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: headSha
+                }
+              );
+              const previousCi = statuses
+                .filter(status => status.context === "pr-ci-checks")
+                .sort((left, right) =>
+                  new Date(right.created_at) - new Date(left.created_at)
+                )[0];
+              ciState = previousCi?.state === "success" ? "success" : "failure";
+            }
+            const allChecksState =
+              !stale &&
+              ciState === "success" &&
+              process.env.SENSITIVE_REVIEW_RESULT === "success"
+                ? "success"
+                : "failure";
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: headSha,
+              state: allChecksState,
+              context: "all-checks",
+              description: allChecksState === "success"
+                ? "Required CI and review policy checks passed."
+                : "Required CI or review policy checks failed or did not run."
+            });
+            if (allChecksState !== "success") {
+              core.setFailed("The required all-checks status did not pass for the current PR head.");
+            }
