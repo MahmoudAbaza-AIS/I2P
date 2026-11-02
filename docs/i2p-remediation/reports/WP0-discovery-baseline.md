@@ -4,7 +4,7 @@
 
 - **WP:** WP0
 - **Branch:** `fix/i2p-wp0-discovery-baseline`
-- **PR:** (filled after open)
+- **PR:** https://github.com/MahmoudAbaza-AIS/I2P/pull/8
 
 ## 2. Done
 
