@@ -1,7 +1,7 @@
 ﻿# WP9 Report — Licensing
 
 ## 1. WP / branch / PR
-- WP9 / `fix/i2p-wp9-licensing` / (PR after open)
+- WP9 / `fix/i2p-wp9-licensing` / 
 
 ## 2. Done
 - Inventories 324 unique package×version rows with NuGet license metadata
