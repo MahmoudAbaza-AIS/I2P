@@ -39,3 +39,10 @@ N-13,Migrate on startup,00-baseline.md ยง11,deferred to WP4,WP0,Confirmed
 N-14,VaultSecretsProvider name,00-baseline.md ยง11,deferred to WP8,WP0,Confirmed
 N-15,EF InMemory Api.Tests,00-baseline.md ยง11,deferred to WP8,WP0,Confirmed
 N-16,dev behind main,WP-00 PRs,git ancestry gate,WP-00,Closed
+REQ-ID-NEEDED: package-licensing-policy,NuGet graph,docs/i2p-remediation/licensing.md,nuget catalog scrape + package list,WP9,Reported
+FluentAssertions-8-commercial-exposure,Test projects,licensing.md ง1 / D07,manual license review,WP9,Confirmed-live-risk
+MassTransit-8.5.2-Apache-2.0,Infrastructure,licensing.md ง4.1,nuget Apache-2.0,WP9,Verified
+MediatR-12.5.0-Apache-2.0,Application,licensing.md ง4.2,nuget Apache-2.0,WP9,Verified
+AutoMapper,n/a,licensing.md ง4.4,not in graph,WP9,Absent
+Duende-IdentityServer,n/a,licensing.md ง4.5,not in NuGet graph,WP9,Absent
+D7,STOP gate,decisions/D07-licensing.md,awaiting Mahmoud,WP9,Blocked
