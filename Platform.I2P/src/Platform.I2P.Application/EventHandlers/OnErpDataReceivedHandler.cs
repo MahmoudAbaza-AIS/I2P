@@ -84,6 +84,7 @@ public sealed class OnErpDataReceivedHandler : INotificationHandler<ErpRawDataRe
                 SequenceNumber: DateTimeOffset.UtcNow.Ticks,
                 exchange.PayloadJson,
                 exchange.Timestamp.Value,
+                exchange.Timestamp.Origin.ToString(),
                 exchange.Quality.Code.ToString(),
                 exchange.SourceSystem,
                 DateTimeOffset.UtcNow),

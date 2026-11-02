@@ -28,7 +28,9 @@ public class CmmsConnectorContractTests : IDisposable
     [Fact]
     public async Task Maps_Contract()
     {
-        var result = await _connector.GetWorkOrdersAsync(Guid.NewGuid()); result.Should().ContainSingle(x => x.AssetId == "A-9");
+        var result = await _connector.GetWorkOrdersAsync(Guid.NewGuid());
+        result.Accepted.Should().ContainSingle(x => x.AssetId == "A-9");
+        result.RejectedReasons.Should().BeEmpty();
     }
 
     public void Dispose() => _server.Stop();
