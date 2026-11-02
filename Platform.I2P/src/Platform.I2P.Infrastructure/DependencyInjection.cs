@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Platform.I2P.Application.Ports;
 using Platform.I2P.Application.Security;
 using Platform.I2P.Infrastructure.Messaging;
+using Platform.I2P.Infrastructure.Observability;
 using Platform.I2P.Infrastructure.Persistence;
 using Platform.I2P.Infrastructure.Persistence.Repositories;
 using Platform.I2P.Infrastructure.Resilience;
@@ -20,12 +22,20 @@ public static class DependencyInjection
         IConfiguration configuration,
         IHostEnvironment environment)
     {
-        services.Configure<OutboxOptions>(configuration.GetSection("Outbox"));
         services.AddOptions<ResilienceOptions>()
             .Bind(configuration.GetSection("Resilience"))
             .ValidateOnStart();
-        services.AddSingleton<Microsoft.Extensions.Options.IValidateOptions<ResilienceOptions>, ResilienceOptionsValidator>();
+        services.AddSingleton<IValidateOptions<ResilienceOptions>, ResilienceOptionsValidator>();
         services.Configure<ClientCredentialsOptions>(configuration.GetSection("Auth:ClientCredentials"));
+
+        services.AddOptions<MessagingOptions>()
+            .Bind(configuration.GetSection(MessagingOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<MessagingOptions>, MessagingOptionsValidator>();
+
+        services.AddOptions<OutboxDeliveryOptions>()
+            .Bind(configuration.GetSection(OutboxDeliveryOptions.SectionName))
+            .ValidateOnStart();
 
         var connectionString = ResolveConnectionString(configuration, environment);
 
@@ -36,35 +46,65 @@ public static class DependencyInjection
         services.AddScoped<IFieldMappingRepository, FieldMappingRepository>();
         services.AddScoped<IExchangeRecordRepository, ExchangeRecordRepository>();
         services.AddScoped<IAuditWriter, EfAuditWriter>();
+        services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<IEventPublisher, MassTransitEventPublisher>();
+        services.AddScoped<IDeadLetterOutboxService, DeadLetterOutboxService>();
         services.AddSingleton<ISecretsProvider, VaultSecretsProvider>();
         services.AddHttpClient("i2p-oauth");
         services.AddSingleton<IAccessTokenProvider, CachedAccessTokenProvider>();
-        services.AddHostedService<OutboxProcessor>();
+        services.AddSingleton<OutboxMetrics>();
+        services.AddHostedService<OutboxMetricsCollector>();
+        services.AddHostedService<OutboxDeadLetterSweeper>();
+        services.AddSingleton<MessagingHealthCheck>();
 
-        var rabbitHost = configuration["Messaging:RabbitMq:Host"];
-        if (!string.IsNullOrWhiteSpace(rabbitHost))
+        var messaging = configuration.GetSection(MessagingOptions.SectionName).Get<MessagingOptions>()
+            ?? new MessagingOptions();
+
+        services.AddMassTransit(x =>
         {
-            var username = configuration["Messaging:RabbitMq:Username"];
-            var password = configuration["Messaging:RabbitMq:Password"];
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            x.AddEntityFrameworkOutbox<I2PDbContext>(o =>
             {
-                throw new InvalidOperationException(
-                    "Messaging:RabbitMq:Username and Password are required when Host is configured. Do not rely on guest/guest.");
-            }
-
-            services.AddMassTransit(x =>
-            {
-                x.UsingRabbitMq((_, cfg) =>
+                o.QueryDelay = TimeSpan.FromSeconds(1);
+                o.UseSqlServer();
+                o.UseBusOutbox(busOutbox =>
                 {
-                    cfg.Host(rabbitHost, h =>
+                    busOutbox.MessageDeliveryLimit = 50;
+                    // Single-message delivery batches preserve publish order for a partition (NFR-REL-036).
+                    busOutbox.MessageDeliveryTimeout = TimeSpan.FromSeconds(10);
+                    if (!messaging.IsConfigured)
                     {
-                        h.Username(username);
-                        h.Password(password);
-                    });
+                        // Development without Rabbit: stage outbox rows but do not deliver (D-02).
+                        busOutbox.DisableDeliveryService();
+                    }
                 });
             });
-        }
+
+            x.AddConfigureEndpointsCallback((context, _, cfg) =>
+            {
+                cfg.UseEntityFrameworkOutbox<I2PDbContext>(context);
+            });
+
+            if (messaging.IsConfigured)
+            {
+                x.UsingRabbitMq((context, cfg) =>
+                {
+                    cfg.Host(messaging.Host, h =>
+                    {
+                        h.Username(messaging.Username);
+                        h.Password(messaging.Password);
+                        h.PublisherConfirmation = true;
+                    });
+                    cfg.ConfigureEndpoints(context);
+                });
+            }
+            else
+            {
+                x.UsingInMemory((context, cfg) =>
+                {
+                    cfg.ConfigureEndpoints(context);
+                });
+            }
+        });
 
         ValidateConnectorAddresses(configuration, environment);
 

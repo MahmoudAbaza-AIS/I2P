@@ -23,15 +23,18 @@ public sealed class OnErpDataReceivedHandler : INotificationHandler<ErpRawDataRe
 {
     private readonly IExchangeRecordRepository _exchanges;
     private readonly IEventPublisher _publisher;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<OnErpDataReceivedHandler> _logger;
 
     public OnErpDataReceivedHandler(
         IExchangeRecordRepository exchanges,
         IEventPublisher publisher,
+        IUnitOfWork unitOfWork,
         ILogger<OnErpDataReceivedHandler> logger)
     {
         _exchanges = exchanges;
         _publisher = publisher;
+        _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
@@ -62,22 +65,31 @@ public sealed class OnErpDataReceivedHandler : INotificationHandler<ErpRawDataRe
             return;
         }
 
-        if (IdempotencyChecker.IsDuplicate(exchange.IdempotencyKey, Array.Empty<string>()) is false)
+        if (IdempotencyChecker.IsDuplicate(exchange.IdempotencyKey, Array.Empty<string>()))
         {
-            await _exchanges.AddAsync(exchange, cancellationToken);
-
-            await _publisher.PublishAsync(
-                new ErpDataReceivedEvent(
-                    exchange.Id,
-                    exchange.EndpointId,
-                    exchange.ExternalId,
-                    exchange.PayloadJson,
-                    exchange.Timestamp.Value,
-                    exchange.Quality.Code.ToString(),
-                    exchange.SourceSystem,
-                    DateTimeOffset.UtcNow),
-                cancellationToken);
+            return;
         }
+
+        await _exchanges.AddAsync(exchange, cancellationToken);
+
+        var messageId = Guid.NewGuid();
+        await _publisher.PublishAsync(
+            new ErpDataReceivedEvent(
+                messageId,
+                CorrelationId: Guid.NewGuid(),
+                exchange.Id,
+                exchange.EndpointId,
+                exchange.ExternalId,
+                EntityType: "PurchaseOrder",
+                SequenceNumber: DateTimeOffset.UtcNow.Ticks,
+                exchange.PayloadJson,
+                exchange.Timestamp.Value,
+                exchange.Quality.Code.ToString(),
+                exchange.SourceSystem,
+                DateTimeOffset.UtcNow),
+            cancellationToken);
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     private static Quality ParseQuality(string? code) =>

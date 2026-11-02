@@ -22,6 +22,8 @@ using Platform.I2P.Connectors.Mes;
 using Platform.I2P.Connectors.Sap;
 using Platform.I2P.Domain.Exceptions;
 using Platform.I2P.Infrastructure;
+using Platform.I2P.Infrastructure.Messaging;
+using Platform.I2P.Infrastructure.Observability;
 using Platform.I2P.Infrastructure.Persistence;
 using Serilog;
 
@@ -67,7 +69,8 @@ public partial class Program
 
         builder.Services.AddI2POpenApi();
         builder.Services.AddHealthChecks()
-            .AddDbContextCheck<I2PDbContext>("sqlserver", tags: ["ready"]);
+            .AddDbContextCheck<I2PDbContext>("sqlserver", tags: ["ready"])
+            .AddCheck<MessagingHealthCheck>("messaging", tags: ["ready"]);
 
         ConfigureAuthentication(builder);
         ConfigureAuthorization(builder.Services);
@@ -92,6 +95,7 @@ public partial class Program
             .WithMetrics(m => m
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
+                .AddMeter(OutboxMetrics.MeterName)
                 .AddOtlpExporter());
 
         var app = builder.Build();

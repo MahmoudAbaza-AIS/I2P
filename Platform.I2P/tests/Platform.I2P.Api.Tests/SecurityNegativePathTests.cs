@@ -153,7 +153,7 @@ public class DevBearerApiFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             ReplaceDbContext(services);
-            RemoveOutboxProcessor(services);
+            DisableOutboxDeliveryHostedServices(services);
         });
     }
 
@@ -164,9 +164,15 @@ public class DevBearerApiFactory : WebApplicationFactory<Program>
         services.AddDbContext<I2PDbContext>(o => o.UseInMemoryDatabase("i2p-api-tests-" + Guid.NewGuid()));
     }
 
-    internal static void RemoveOutboxProcessor(IServiceCollection services)
+    /// <summary>
+    /// API auth tests do not need outbox sweepers/metrics polling against InMemory.
+    /// </summary>
+    internal static void DisableOutboxDeliveryHostedServices(IServiceCollection services)
     {
-        foreach (var d in services.Where(d => d.ImplementationType == typeof(OutboxProcessor)).ToList())
+        foreach (var d in services.Where(d =>
+                     d.ImplementationType == typeof(Platform.I2P.Infrastructure.Messaging.OutboxDeadLetterSweeper) ||
+                     d.ImplementationType == typeof(Platform.I2P.Infrastructure.Observability.OutboxMetricsCollector))
+                     .ToList())
         {
             services.Remove(d);
         }
@@ -221,7 +227,7 @@ public sealed class JwtApiFactory : WebApplicationFactory<Program>
             });
 
             DevBearerApiFactory.ReplaceDbContext(services);
-            DevBearerApiFactory.RemoveOutboxProcessor(services);
+            DevBearerApiFactory.DisableOutboxDeliveryHostedServices(services);
         });
     }
 

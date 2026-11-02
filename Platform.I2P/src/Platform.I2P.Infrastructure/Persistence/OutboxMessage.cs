@@ -3,25 +3,6 @@ using Platform.I2P.Domain.ValueObjects;
 
 namespace Platform.I2P.Infrastructure.Persistence;
 
-public sealed class OutboxMessage
-{
-    public Guid Id { get; set; }
-    public string TypeName { get; set; } = string.Empty;
-    public string PayloadJson { get; set; } = string.Empty;
-    public DateTimeOffset CreatedAtUtc { get; set; }
-    public DateTimeOffset? ProcessedAtUtc { get; set; }
-    public int AttemptCount { get; set; }
-    public string? LastError { get; set; }
-    public string Status { get; set; } = OutboxStatuses.Pending;
-}
-
-public static class OutboxStatuses
-{
-    public const string Pending = "Pending";
-    public const string Processed = "Processed";
-    public const string DeadLettered = "DeadLettered";
-}
-
 public sealed class AuditRecord
 {
     public Guid Id { get; set; }

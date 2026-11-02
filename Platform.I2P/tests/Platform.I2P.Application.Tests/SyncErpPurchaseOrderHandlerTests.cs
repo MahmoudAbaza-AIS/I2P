@@ -46,6 +46,7 @@ public class SyncErpPurchaseOrderHandlerTests
 
         var publisher = Substitute.For<IEventPublisher>();
         var audit = Substitute.For<IAuditWriter>();
+        var uow = Substitute.For<IUnitOfWork>();
 
         var handler = new SyncErpPurchaseOrderHandler(
             erp,
@@ -53,6 +54,7 @@ public class SyncErpPurchaseOrderHandlerTests
             exchanges,
             publisher,
             audit,
+            uow,
             User(),
             NullLogger<SyncErpPurchaseOrderHandler>.Instance);
 
@@ -63,7 +65,8 @@ public class SyncErpPurchaseOrderHandlerTests
         await publisher.Received(1).PublishAsync(
             Arg.Any<Platform.I2P.Contracts.Events.ErpDataReceivedEvent>(),
             Arg.Any<CancellationToken>());
-        await audit.Received(1).WriteAsync("ManualSyncTriggered", "user-1", Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await uow.Received().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await audit.Received(1).WriteAsync("ManualSyncCompleted", "user-1", Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -79,6 +82,7 @@ public class SyncErpPurchaseOrderHandlerTests
             Substitute.For<IExchangeRecordRepository>(),
             Substitute.For<IEventPublisher>(),
             Substitute.For<IAuditWriter>(),
+            Substitute.For<IUnitOfWork>(),
             User(),
             NullLogger<SyncErpPurchaseOrderHandler>.Instance);
 
@@ -110,12 +114,14 @@ public class SyncErpPurchaseOrderHandlerTests
         var exchanges = Substitute.For<IExchangeRecordRepository>();
         exchanges.ExistsByIdempotencyKeyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
 
+        var uow = Substitute.For<IUnitOfWork>();
         var handler = new SyncErpPurchaseOrderHandler(
             erp,
             endpoints,
             exchanges,
             Substitute.For<IEventPublisher>(),
             Substitute.For<IAuditWriter>(),
+            uow,
             User(),
             NullLogger<SyncErpPurchaseOrderHandler>.Instance);
 
@@ -123,5 +129,7 @@ public class SyncErpPurchaseOrderHandlerTests
 
         result.Should().BeEmpty();
         await exchanges.DidNotReceive().AddAsync(Arg.Any<ExchangeRecord>(), Arg.Any<CancellationToken>());
+        // Audit completion still commits once at end.
+        await uow.Received().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }
