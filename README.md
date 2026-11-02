@@ -1,279 +1,299 @@
 # Platform.I2P
 
-**Integration-to-Platform (I2P)** is the external system integration module of the Industrial SCADA Automation Platform. It connects the platform to ERP, MES, CMMS, GIS, and LIMS systems through a set of isolated, swappable connectors, without ever letting a vendor's SDK, schema, or protocol leak into the rest of the platform.
+**Integration-to-Platform (I2P)** is the external-system integration service of the **Industrial SCADA Automation Platform**. It connects the platform to ERP (SAP), MES, CMMS, GIS, and LIMS through isolated, swappable connectors — without letting a vendor SDK, schema, or protocol leak into the rest of the platform.
 
-Governing requirements: `PSRS-001` (platform requirements baseline), `IMP-PLAN-001` (implementation and workstream dependency plan), `RTM-001` (requirements traceability matrix). All three live in `Platform.Docs/`.
+| | |
+|---|---|
+| **Abbreviation** | I2P |
+| **Expansion** | Integration-to-Platform |
+| **Platform** | Industrial SCADA Automation Platform |
+| **Workstream** | IMP-PLAN-001 Workstream G (Integration) |
+| **Deployment** | Separately deployable service (own solution, container image, CI/CD) |
+| **Internal design** | Clean Architecture / Hexagonal (ports & adapters) |
 
----
-
-## What This Is, in One Paragraph
-
-I2P belongs to Workstream G (Integration) of the platform's build plan, a Stage-3 feature workstream that only starts once the Core Platform Baseline (shared identity, timestamp, and quality models from the Data Foundation, Platform Core, and Security Core workstreams) is stable. It is built as a **Modular Monolith**: one deployable process, internally structured as **Clean Architecture / Hexagonal / Ports-and-Adapters** per module, so business logic stays testable and swappable without paying the operational cost of microservices this platform doesn't yet need.
-
----
-
-## System Diagram
-
-```
-                                EXTERNAL SYSTEMS
-   ┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐   ┌───────────┐
-   │    ERP    │   │    MES    │   │   CMMS    │   │    GIS    │   │   LIMS/BI │
-   │  (SAP)    │   │           │   │           │   │           │   │           │
-   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
-         │ OData/BAPI/    │ OPC-UA/        │ REST/         │ REST/WFS/     │ HL7/REST
-         │ IDoc           │ REST+B2MML     │ ODBC          │ WMS           │
-   ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐
-   │  SapConn  │   │  MesConn  │   │ CmmsConn  │   │  GisConn  │   │ LimsConn  │
-   │  ector    │   │  ector    │   │  ector    │   │  ector    │   │  ector    │
-   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘   └─────┬─────┘
-         └────────────────┴────────────────┴───────────────┴───────────────┘
-                    Each connector implements a shared port interface
-                    (IErpConnector, IMesConnector...) and normalizes
-                            data into ONE internal shape
-                                          │
-                        ┌─────────────────▼──────────────────┐
-                        │      Platform.I2P.Application       │
-                        │   MediatR handlers, validators,     │
-                        │   orchestration, port interfaces    │
-                        └─────────────────┬────────────────────┘
-                                          │
-                        ┌─────────────────▼──────────────────┐
-                        │       Platform.I2P.Domain            │
-                        │  pure C#, zero NuGet packages,       │
-                        │  entities, mapping rules,             │
-                        │  idempotency logic                    │
-                        └─────────────────┬────────────────────┘
-                                          │
-              ┌───────────────────────────┼───────────────────────────┐
-     ┌────────▼────────┐        ┌─────────▼─────────┐        ┌────────▼────────┐
-     │  SQL Server      │        │  Outbox Table      │        │  Secrets Manager │
-     │  config, mappings│        │  guaranteed          │        │  credentials,    │
-     │  audit            │        │  delivery            │        │  never in DB     │
-     └───────────────────┘        └─────────┬───────────┘        └──────────────────┘
-                                             │
-                                   ┌─────────▼─────────┐
-                                   │  MassTransit +      │
-                                   │  RabbitMQ           │
-                                   └─────────┬───────────┘
-              ┌──────────────────────────────┼──────────────────────────────┐
-     ┌────────▼────────┐          ┌──────────▼──────────┐         ┌────────▼────────┐
-     │  Alarm Management │          │  Historian            │         │  Notification    │
-     └────────────────────┘          └───────────────────────┘         └──────────────────┘
-
-                        ┌──────────────────────────────────┐
-                        │       Platform.I2P.Api             │
-                        │  ASP.NET Core controllers,         │
-                        │  OpenAPI, auth middleware          │
-                        │  <- dashboards, mobile, partners    │
-                        └──────────────────────────────────┘
-```
-
-External systems never touch the database directly. Each is reached through its native protocol, absorbed by a dedicated connector, and normalized before anything downstream ever sees it. Time-series data goes to the Historian, everything else (config, mappings, audit, the outbox) lives in SQL Server.
+Governing baselines (under `Platform.Docs/Requirements and Traceability/`): `PSRS-001`, `IMP-PLAN-001`, `RTM-001`. PR standards: `Platform.Docs/Implementation and Release/` (PDF checklist + `RELEASE_GATES.md`).
 
 ---
 
-## Architecture Rules (Non-Negotiable)
+## Business rules (non-negotiable)
+
+These come from PSRS-001 §2.5 / §2.9 and the Workstream G allocation. Docs and code must stay honest to them.
+
+1. **Supervisory only.** I2P never sends commands, setpoints, or writes to control-layer endpoints (PLC, DCS, RTU, SIS, OPC UA write/call, Modbus registers, etc.). Enterprise systems may only produce **request events** for the platform Supervisory Control module — I2P does not transmit control itself.
+2. **Configuration over customization.** New customers and external entities are delivered by configuration, not source changes (PSRS-001 §2.5, §2.9.5 #4).
+3. **Vendor isolation.** Vendor SDKs, DTOs, and protocols live only inside `Platform.I2P.Connectors.`*. Domain, Application, and Contracts stay vendor-free.
+4. **Data integrity — no fabrication.** Missing required source fields are rejected (or quality is marked Unknown). Never invent `Quality.Good()`, currencies, IDs, or geometry.
+5. **Timestamps are UTC.** Persisted and exchanged times use UTC; display time zones are not I2P’s concern.
+6. **Operational values follow platform ingestion.** I2P must not publish operational tag values directly to Historian or Alarm Management (those depend on Data Acquisition / Tag Management / RTDB validation). Business exchange events go through the transactional outbox → message bus.
+7. **Secrets never in source.** Credentials and connection strings resolve through `ISecretsProvider` / environment injection — never committed.
+8. **Other modules depend only on** `Platform.I2P.Contracts`**.** Never on Domain, Application, or Infrastructure.
+
+---
+
+## What I2P does
+
+I2P is the secured translator between external enterprise/ops systems and the platform:
+
+1. Authenticate and authorize the caller (JWT; Development uses a fail-closed Dev bearer).
+2. Call the correct external system through a connector.
+3. Normalize vendor payloads into internal exchange records (quality + operational timestamps preserved).
+4. Persist configuration, mappings, exchanges, audit, and outbox rows in **SQL Server**.
+5. Publish allowlisted integration events via **transactional outbox → MassTransit → RabbitMQ**.
+6. Expose versioned HTTP APIs for sync, exchange history, mappings, health, and outbox dead-letter handling.
+
+It does **not** replace ERP/MES/CMMS/GIS/LIMS products, and it does **not** perform deterministic process control.
+
+---
+
+## Current capability (honest)
+
+| Area | Status |
+|---|---|
+| ERP (SAP) purchase-order sync | Implemented (HTTP/OData-style); WireMock-tested; live vendor sandbox still a release gate |
+| MES / CMMS / GIS / LIMS | **Health probes only** — no production sync HTTP paths yet |
+| Field mappings API | Update endpoint exists; mappings are not yet applied on the sync path |
+| Outbox → RabbitMQ | Implemented; required outside Development |
+| Tenants / executive dashboard HTTP APIs | **Not in current source controllers** (historical docs may still mention them) |
+| OPC UA / B2MML / industrial protocol clients | **Not present** — MES connector is REST/HTTP only |
+| CI `deploy-*` jobs | Echo stubs — not real rollout automation |
+| Live SAP/MES/… interoperability | Unverified until authorized sandbox validation |
+
+---
+
+## System context
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Platform.I2P.Domain                                         │
-│  references NOTHING but the .NET BCL                        │
-│  no EF Core · no ASP.NET · no vendor SDK · no MassTransit     │
-│  enforced by Platform.I2P.Architecture.Tests (NetArchTest)    │
-└─────────────────────────────────────────────────────────────┘
-                              ▲
-                    only Application depends on Domain
-                              ▲
-┌─────────────────────────────────────────────────────────────┐
-│  Other platform modules (Alarm Management, Historian, ...)   │
-│  depend ONLY on Platform.I2P.Contracts                        │
-│  never on Domain, Application, or Infrastructure directly     │
-└─────────────────────────────────────────────────────────────┘
+                         EXTERNAL SYSTEMS (read/exchange only)
+   ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐
+   │ ERP (SAP) │  │    MES    │  │   CMMS    │  │    GIS    │  │   LIMS    │
+   │ HTTP/OData│  │ HTTP/REST │  │ HTTP/REST │  │ HTTP/REST │  │ HTTP/REST │
+   └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘
+         │              │              │              │              │
+   ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼─────┐
+   │ SapConn.  │  │ MesConn.  │  │ CmmsConn. │  │ GisConn.  │  │ LimsConn. │
+   └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘
+         └──────────────┴──────────────┴──────────────┴──────────────┘
+                                   │ ports (IErpConnector, …)
+                     ┌─────────────▼──────────────┐
+                     │  Platform.I2P.Application   │
+                     │  MediatR, validation, ports │
+                     └─────────────┬──────────────┘
+                                   │
+                     ┌─────────────▼──────────────┐
+                     │   Platform.I2P.Domain       │
+                     │   BCL-only business rules  │
+                     └─────────────┬──────────────┘
+              ┌────────────────────┼────────────────────┐
+     ┌────────▼────────┐  ┌────────▼────────┐  ┌────────▼────────┐
+     │   SQL Server     │  │  Outbox table   │  │ Secrets provider│
+     │ config, mappings │  │  (guaranteed    │  │ (no secrets in  │
+     │ exchanges, audit │  │   delivery)     │  │  source / DB)   │
+     └──────────────────┘  └────────┬────────┘  └─────────────────┘
+                                    │
+                          ┌─────────▼─────────┐
+                          │ MassTransit +      │
+                          │ RabbitMQ           │
+                          └─────────┬─────────┘
+                                    │
+                    platform consumers (via Contracts events)
+                    — not a direct bypass into Historian/Alarms
+
+                     ┌──────────────────────────────┐
+                     │     Platform.I2P.Api          │
+                     │ ASP.NET Core, OpenAPI/Scalar │
+                     │ auth, versioning, health     │
+                     └──────────────────────────────┘
+```
+
+External systems never touch the I2P database directly. Each is reached through its connector and normalized before anything downstream sees it.
+
+---
+
+## Architecture rules
+
+```
+Platform.I2P.Domain
+  references NOTHING but the .NET BCL
+  enforced by Platform.I2P.Architecture.Tests (NetArchTest)
+
+Other platform modules
+  depend ONLY on Platform.I2P.Contracts
+  never on Domain, Application, Infrastructure, or Connectors
 ```
 
 | Rule | Why |
 |---|---|
-| Modular Monolith, not microservices | No documented scale evidence requires independent deployment yet; microservices trade a real problem for network partitions, distributed tracing, and N pipelines you'd be paying for without a benefit to cash in |
-| Each module is internally Clean Architecture | Business rules testable without a database, swappable without touching core logic |
-| Configuration over customization | Platform-wide design principle; project-specific behavior belongs in config, not source changes |
-| Connectors are the only place a vendor SDK may live | Isolates SAP/MES/CMMS/GIS/LIMS instability; a bug in one connector's date parsing can't corrupt another's data |
+| Separately deployable service | Own solution, Dockerfile, and pipeline; talks to peers over Contracts + RabbitMQ (NFR-CON-001 / NFR-CON-009) |
+| Clean Architecture inside the service | Business rules testable without DB/HTTP; connectors stay swappable |
+| Configuration over customization | Project-specific behavior belongs in config, not forks of source |
+| Connectors are the only vendor boundary | Isolates SAP/MES/CMMS/GIS/LIMS instability |
 
 ---
 
-## Solution Structure
+## Repository layout
 
 ```
-Platform.I2P/
-├── Dockerfile
-├── Platform.I2P.sln
-├── src/
-│   ├── Platform.I2P.Domain/              # pure business logic, zero dependencies
-│   ├── Platform.I2P.Application/         # MediatR commands/queries, port interfaces
-│   ├── Platform.I2P.Infrastructure/       # EF Core, outbox, MassTransit, secrets, Polly
-│   ├── Platform.I2P.Connectors.Sap/       # OData/BAPI/IDoc, confirmed against sandbox
-│   ├── Platform.I2P.Connectors.Mes/       # OPC-UA / REST+B2MML
-│   ├── Platform.I2P.Connectors.Cmms/
-│   ├── Platform.I2P.Connectors.Gis/
-│   ├── Platform.I2P.Connectors.Lims/
-│   ├── Platform.I2P.Contracts/            # the ONLY thing other modules may depend on
-│   └── Platform.I2P.Api/                  # controllers, OpenAPI, auth middleware
-└── tests/
-    ├── Platform.I2P.Domain.Tests/         # pure unit tests, no mocks
-    ├── Platform.I2P.Application.Tests/    # handler tests, mocked ports
-    ├── Platform.I2P.Api.Tests/
-    ├── Platform.I2P.Architecture.Tests/   # fails the build on boundary violations
-    ├── Platform.I2P.Connectors.*.Tests/   # WireMock only, never a live vendor call
-    └── Platform.I2P.Integration.Tests/    # Testcontainers: real SQL Server + RabbitMQ
+I2P/
+├── README.md                          # this file
+├── Platform.Docs/                     # requirements, guides, remediation, security
+├── Platform.I2P/                      # .NET solution (API service)
+│   ├── Dockerfile
+│   ├── Platform.I2P.sln
+│   ├── src/
+│   │   ├── Platform.I2P.Domain/
+│   │   ├── Platform.I2P.Application/
+│   │   ├── Platform.I2P.Infrastructure/
+│   │   ├── Platform.I2P.Connectors.Sap/
+│   │   ├── Platform.I2P.Connectors.Mes/
+│   │   ├── Platform.I2P.Connectors.Cmms/
+│   │   ├── Platform.I2P.Connectors.Gis/
+│   │   ├── Platform.I2P.Connectors.Lims/
+│   │   ├── Platform.I2P.Contracts/
+│   │   └── Platform.I2P.Api/
+│   └── tests/
+│       ├── *.Domain|Application|Api|Architecture.Tests
+│       ├── *.Connectors.*.Tests       # WireMock only — never live vendor calls in CI
+│       └── *.Integration.Tests        # Testcontainers: SQL Server + RabbitMQ
+├── Platform.UI/                       # Angular SPA (shell + I2P vertical slice)
+└── .github/workflows/i2p-ci.yml
 ```
+
+Empty connector folders under `src/` (if present) are not active implementations — only projects registered in `Program.cs` and containing source are live.
 
 ---
 
-## Tech Stack
+## Tech stack
 
-| Concern | Choice | Why |
-|---|---|---|
-| Runtime | .NET 10 (LTS) | .NET 8 reaches end of support Nov 2026; .NET 10 is supported through Nov 2028 |
-| API | ASP.NET Core Web API + OpenAPI | Contract-first friendly, generates the spec reviewed in every PR |
-| Application layer | MediatR + FluentValidation | Thin controllers, validation out of controllers and domain entities |
-| ORM | EF Core (config/CRUD) + Dapper (hot-path reads) | Productivity where perf doesn't matter, raw speed where it does |
-| Messaging | MassTransit + RabbitMQ | Outbox pattern, retries, dead-lettering, satisfies the platform's guaranteed-delivery requirement (FR-API-048) |
-| Resilience | Polly | Circuit breaker + retry-with-backoff on every outbound connector call |
-| Auth | Duende IdentityServer or Entra ID (decision pending) | OAuth2 client-credentials for machine-to-machine, delegated tokens for humans |
-| Observability | Serilog + OpenTelemetry | Structured logs, correlation IDs, traces |
-| Testing | xUnit, FluentAssertions, WireMock.Net, Testcontainers | No live vendor calls, no in-memory-fake database behavior gaps |
-| Database | SQL Server only | Already operated in production; time-series data goes to the platform Historian, not here |
+| Concern | Choice |
+|---|---|
+| Runtime | .NET 10 |
+| API | ASP.NET Core Web API + OpenAPI + Scalar (Mars theme) |
+| Application | MediatR + FluentValidation |
+| Persistence | SQL Server + EF Core |
+| Messaging | MassTransit + RabbitMQ + transactional outbox |
+| Resilience | Polly on outbound connector calls |
+| Auth | JWT bearer; `Auth:Authority` required outside Development; Dev bearer is Development-only and fail-closed |
+| Observability | Serilog + OpenTelemetry |
+| Testing | xUnit, FluentAssertions, WireMock.Net, Testcontainers, NetArchTest |
 
 ---
 
-## Environments
+## Local API surface (v1)
 
-```
-   feature branch ──PR──▶  dev  ──PR──▶  ppr (Preproduction) ──PR──▶  main
-                            │                  │                  │
-                      auto-deploy        rolling deploy      rolling deploy
-                      no redundancy      through redundancy  through redundancy
-                      fast iteration     pair (dress         pair, MANUAL
-                                         rehearsal for prod)  APPROVAL required
-```
+Default launch profile: `http://localhost:5044` (HTTPS profile also binds `https://localhost:7174`).
 
-| Environment | Branch | Deployment style | Purpose |
+| Method | Path | Auth | Notes |
 |---|---|---|---|
-| Development | `dev` | Direct recreate, no approval | Engineering iteration, not held to the continuous-operation standard |
-| Preproduction | `ppr` | Rolling, through redundancy pair | Dress rehearsal for the production rollout mechanism itself; FAT/SAT/UAT and real vendor-sandbox connector validation happen here |
-| Production | `main` | Rolling, through redundancy pair | Manual approval required via GitHub Environment protection rules; on-prem inside the customer's OT security zone by default |
+| GET | `/scalar` (or launch `scalar/v1`) | Anonymous | Interactive docs |
+| GET | `/openapi/v1.json` | Anonymous | OpenAPI document |
+| GET | `/health/live` | Anonymous | Process up |
+| GET | `/health/ready` | Anonymous | SQL (+ messaging) readiness |
+| GET | `/api/v1/integration/health` | Reader | Live connector health fan-out |
+| POST | `/api/v1/integration/sync/erp/purchase-orders` | Operator | SAP PO sync |
+| GET | `/api/v1/integration/sync/exchanges` | Reader | Exchange history |
+| PUT | `/api/v1/integration/mappings/{mappingId}` | Admin | Update field mapping |
+| GET/POST | `/api/v1/integration/outbox/dead-letters`… | Admin | Dead-letter list / requeue |
 
-Promote changes in order: feature branch → PR to `dev` → PR from `dev` to `ppr` → PR from `ppr` to `main`. The workflow validates these source/target pairs and rejects fork-based promotion, including a fork branch named `dev` or `ppr`. Do not push directly to `ppr` or `main`; this applies to administrators and apps as well as contributors. The ruleset configuration below has no bypass actors. `dev` is not included in that ruleset and therefore is not protected against direct pushes by this configuration.
-
-Push-triggered CI and deployment jobs intentionally remain enabled: GitHub emits a `push` event after a PR merge, which is how post-merge build/deploy work starts. That event does not authorize direct pushes; enforcement comes from the active GitHub ruleset.
-
-Runtime, RTDB, Alarm Management, and Historian stay on-premises inside the customer's OT-segmented network by default, consistent with IEC 62443 / NIST SP 800-82 industrial security posture. Cloud (Azure, for stack-consistency with .NET/Entra ID/SQL Server) is limited to non-control-critical slices: central monitoring, license management, remote diagnostics.
-
----
-
-## CI/CD Pipeline
-
-`.github/workflows/i2p-ci.yml` runs on every PR into `dev`, `ppr`, or `main`, plus a weekly scheduled dependency scan. PR body edits and retargeting are revalidated. Review submission, edits, and dismissals re-evaluate sensitive-change confirmation.
-
-```
-PR opened
-   │
-   ├─▶ pr-metadata ──────────── requirement ID referenced in PR description?
-   ├─▶ promotion-check ──────── same-repository feature→dev→ppr→main only?
-   ├─▶ secret-scan ───────────── full git history, Gitleaks
-   ├─▶ build ─────────────────── restore, format, build, SonarQube quality gate (blocking)
-   │       │
-   │       ├─▶ platform-tests ─────── Domain, Application, Api, Architecture (matrix)
-   │       │       └─▶ coverage-gate ─ Domain + Application only, 80% threshold
-   │       ├─▶ connector-contract-tests ─ Sap/Mes/Cmms/Gis/Lims, WireMock only (matrix)
-   │       └─▶ integration ────────── real SQL Server + RabbitMQ via service containers
-   ├─▶ dependency-scan ────────── NuGet vulnerable + transitive package check
-   └─▶ sensitive-review ─────── explicit non-author approval and negative-path confirmation when needed
-           │
-           ▼
-     all-checks (required by the main/ppr ruleset after admin activation)
-
-push after merge to dev / ppr / main
-   │
-   └─▶ docker-build ──▶ deploy-{dev|ppr|production}
-                          (rolling through redundancy pair, manual approval on production)
-```
-
-The `all-checks` status fails closed unless every required PR job succeeds; failed, cancelled, skipped, and missing jobs are failures. The SonarQube quality gate is required for PRs targeting `ppr` or `main`, so those checks fail if `SONAR_TOKEN`, `SONAR_HOST_URL`, or `SONAR_ORGANIZATION` is not configured. Configure a least-privilege Sonar token as the `SONAR_TOKEN` and `SONAR_HOST_URL` Actions secrets and `SONAR_ORGANIZATION` Actions variable before rollout. Fork PRs cannot access repository secrets and will remain blocked from protected-branch promotion until their changes are submitted from a same-repository branch. Do not use `pull_request_target` to work around this. The latest inspected scheduled CI run also failed during restore because `System.Security.Cryptography.Pkcs` and `System.Security.Cryptography.Xml` package versions were reported vulnerable; resolve that dependency issue separately before expecting all required checks to pass.
-
-The current `deploy-*` jobs are echo-only stubs; they do not deploy or enforce the rollout behavior described above. The README describes the intended environment flow, not completed deployment automation.
-
-The referenced `Platform.Docs/PR_Code_Standards_Checklist_v3_Complete.md` and governing documents are not present in this checkout. Do not infer or invent their contents or requirement IDs.
+Unversioned `/api/integration/...` may still map to v1 where configured; prefer `/api/v1/...`.
 
 ---
 
-## Testing Strategy
+## Environments & promotion
+
+```
+feature branch ──PR──▶  dev  ──PR──▶  ppr  ──PR──▶  main
+```
+
+| Environment | Branch | Notes |
+|---|---|---|
+| Development | `dev` | Fast iteration |
+| Preproduction | `ppr` | FAT/SAT/UAT and vendor-sandbox validation |
+| Production | `main` | Manual approval; on-prem OT zone by default |
+
+Promote only feature → `dev` → `ppr` → `main` in the same repository. Do not push directly to `ppr` or `main`. Push-triggered CI after merge is intentional; it does not authorize direct pushes.
+
+Runtime control-critical pieces stay on-premises inside the customer’s OT-segmented network by default (IEC 62443 / NIST SP 800-82 posture). Cloud is limited to non-control-critical slices (monitoring, licensing, remote diagnostics).
+
+---
+
+## CI/CD
+
+`.github/workflows/i2p-ci.yml` runs on PRs into `dev` / `ppr` / `main` (plus scheduled dependency scan): metadata/requirement ID check, promotion-path check, secret scan, build + Sonar gate, platform/connector/integration tests, dependency scan, sensitive-review confirmation.
+
+`all-checks` fails closed. Fork PRs cannot use repository secrets and stay blocked from protected promotion — do not use `pull_request_target` to work around that.
+
+**Deploy jobs are stubs today** (D-11). The environment table above describes the intended flow, not completed automation.
+
+Branch ruleset example: `.github/config/main-ppr-ruleset.json` (importable; not active until an administrator applies it).
+
+---
+
+## Testing
 
 | Layer | How | Rule |
 |---|---|---|
-| Domain | Unit tests, zero mocks | Pure logic, no excuse to skip coverage |
-| Application | Unit tests, mocked ports | Orchestration only, no real infrastructure |
-| Connectors | Contract tests against WireMock fixtures | Never call a live vendor system in CI; sandbox validation still required once before a connector ships |
-| Integration | Testcontainers, real SQL Server + RabbitMQ | In-memory fakes hide real database behavior differences |
-| Architecture | NetArchTest | Fails the build if Domain references anything beyond the BCL, or a module boundary is crossed directly |
+| Domain | Unit, zero mocks | Pure logic |
+| Application | Unit, mocked ports | No real infrastructure |
+| Connectors | WireMock contract tests | Never call live vendors in CI; sandbox confirmation is a release gate |
+| Integration | Testcontainers SQL + RabbitMQ | Fail (do not skip) if Docker is unavailable |
+| Architecture | NetArchTest | Domain BCL-only; Contracts-only cross-module dependency |
 
 ---
 
-## Security
+## Security highlights
 
-Full checklist in `Platform.Docs/Cursor_Security_Audit_Prompt.md`. Non-negotiables:
+Full checklist: `Platform.Docs/Security/Cursor_Security_Audit_Prompt.md`.
 
-- No secret, credential, or connection string in source, ever. `ISecretsProvider` only.
-- Every resource-scoped endpoint checks ownership, not just authentication (prevents horizontal privilege escalation).
-- EF Core and Dapper queries are parameterized, no string concatenation into SQL.
-- Every NuGet package is verified against the official registry before merge (hallucinated/typosquatted package check).
-- No local password hashing exists anywhere; authentication is fully delegated to the chosen identity provider.
+- No secrets in source; `ISecretsProvider` only.
+- Resource-scoped authorization (not auth alone) for tenant/endpoint ownership.
+- Parameterized data access only.
+- NuGet packages verified against the official registry before merge.
+- No local password hashing — identity is delegated to the IdP.
 
 ---
 
-## Getting Started
+## Getting started
 
 ```bash
 git clone <repo>
 cd Platform.I2P
 dotnet restore Platform.I2P.sln
 dotnet build Platform.I2P.sln -c Release
-dotnet test Platform.I2P.sln          # requires Docker running for Integration.Tests
+dotnet test Platform.I2P.sln --filter "FullyQualifiedName!~Integration.Tests"
+dotnet run --project src/Platform.I2P.Api --launch-profile http
 ```
 
-Docker is required locally for `Platform.I2P.Integration.Tests` (Testcontainers spins up real SQL Server and RabbitMQ). If Docker isn't running, that project's tests fail rather than silently skip, treat that as a blocking condition, not a pass.
+Then open `http://localhost:5044/scalar/v1` and `http://localhost:5044/openapi/v1.json`.
+
+Set `ConnectionStrings__I2P` via environment or user-secrets. Do not commit credentials. See `Platform.Docs/Configuration/appsettings.example.md`.
+
+Docker is required for `Platform.I2P.Integration.Tests`.
+
+UI (optional): see `Platform.UI/README.md` (`npm ci` / `npm start`; proxies to `http://localhost:5044`).
 
 ---
 
 ## Contributing
 
 Every PR must:
-1. Reference a requirement ID from `PSRS-001` in its description (`FR-XXX-000` or `NFR-XXX-000`).
-2. Pass every job in `i2p-ci.yml`.
-3. Get an approval from a non-author reviewer for the current PR revision if it touches auth, security, secrets, identity, or encryption. The reviewer must include `Negative-path coverage: CONFIRMED` in the approval review body. A template checkbox or the workflow's file detection alone is not confirmation.
 
-Full standards: `Platform.Docs/PR_Code_Standards_Checklist_v3_Complete.md`.
+1. Reference a requirement ID (`FR-…` / `NFR-…`) from the approved baseline / remediation Appendix A — never invent IDs.
+2. Pass every required job in `i2p-ci.yml`.
+3. For auth/security/secrets/identity/encryption changes: non-author approval whose review body includes `Negative-path coverage: CONFIRMED`.
 
-### Activating PR-only protection for `main` and `ppr`
+Remediation work follows `Platform.Docs/Implementation and Release/Cursor_I2P_Remediation_Prompt.md` (one WP per branch/PR to `dev`; stop at every STOP gate).
 
-The committed file `.github/config/main-ppr-ruleset.json` is an importable configuration example, **not an active policy**. No repository settings were changed by committing it. A repository administrator must:
+---
 
-1. Review the JSON and current repository rulesets first. Existing rulesets have not been verified; preserve and reconcile any existing rules rather than replacing them blindly.
-2. In **Settings → Rules → Rulesets**, import/create the branch ruleset from this file. Confirm it is active, targets exactly `refs/heads/main` and `refs/heads/ppr`, has an empty bypass list, requires one approval (not by the author or last pusher), dismisses stale approvals, resolves review threads, requires the `all-checks` status from GitHub Actions, and requires up-to-date branches. It blocks force pushes and deletion, and deliberately does not restrict updates (which would also block PR merges).
-3. Verify `all-checks` is available from the GitHub Actions integration and that the imported ruleset's required-check source is GitHub Actions. Confirm the effective policy for both refs in Settings after activation.
-4. Complete the workflow rollout through PRs: merge the policy workflow to `dev`, then PR `dev` → `ppr`, then PR `ppr` → `main`. A target branch must contain the workflow for its PR check to run. On `ppr`/`main`, activate the ruleset only after that branch has the workflow and its check is reported successfully. The first import should still be followed by an administrator's effective-policy review.
-5. Verify in an isolated scratch repository with the same active ruleset that a disposable empty commit cannot be pushed directly to its `main` or `ppr`, while a compliant PR can merge. In this repository, verify the active effective-ruleset display has the exact refs and empty bypass list; do not attempt a direct push here, even with an empty commit. These checks verify rejection behavior without risking changes to this repository's protected branch contents.
+## Governing documents
 
-GitHub branch rulesets can provide this enforcement only when the repository's plan supports rulesets for its visibility. For a private personal repository, GitHub Pro or higher is required. The available context did not verify the subscription, effective rulesets, or current settings, so protection remains unconfirmed until an administrator performs and verifies these steps. The ruleset requires review, checks, and no bypass actors, but a committed JSON file alone cannot block a Git push.
-
-The `dev` branch is intentionally outside this ruleset; protect it separately if direct pushes to `dev` must also be prohibited. Do not add an administrator/app bypass to make promotion easier.
-
-## Governing Documents
-
-| Document | Purpose |
+| Document | Location / purpose |
 |---|---|
-| `PSRS-001` | Requirements baseline (functional + non-functional, 4,550 requirements) |
-| `IMP-PLAN-001` | Implementation dependency and parallel workstream plan |
-| `RTM-001` | Master requirements traceability matrix |
-| `Cursor_I2P_Implementation_Prompt.md` | Architecture and build-order brief this solution was generated from |
-| `Cursor_Security_Audit_Prompt.md` | Pre-ship security audit checklist |
-| `PR_Code_Standards_Checklist_v3_Complete.md` | Complete PR standards, source of truth for CI enforcement |
+| PSRS-001 | `Platform.Docs/Requirements and Traceability/` — platform requirements baseline |
+| IMP-PLAN-001 | Same — workstream dependency plan |
+| RTM-001 | Same — requirements traceability matrix |
+| PR standards checklist | `Platform.Docs/Implementation and Release/` (PDF) + `RELEASE_GATES.md` |
+| Security audit prompt | `Platform.Docs/Security/Cursor_Security_Audit_Prompt.md` |
+| Remediation prompt | `Platform.Docs/Implementation and Release/Cursor_I2P_Remediation_Prompt.md` |
+| Junior onboarding | `Platform.Docs/Business Overview/JUNIOR_ENGINEER_START_TO_FINISH.md` |
+| Quick API card | `Platform.Docs/Business Overview/QUICK_REFERENCE.md` |
