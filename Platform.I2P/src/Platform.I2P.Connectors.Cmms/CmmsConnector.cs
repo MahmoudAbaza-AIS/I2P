@@ -48,7 +48,7 @@ public sealed class CmmsConnector : ICmmsConnector
             : new ConnectorHealth(false, "Unhealthy", $"HTTP {(int)response.StatusCode}");
     }
 
-    public async Task<IReadOnlyList<CmmsWorkOrderData>> GetWorkOrdersAsync(
+    public async Task<ConnectorBatchResult<CmmsWorkOrderData>> GetWorkOrdersAsync(
         Guid endpointId,
         CancellationToken cancellationToken = default)
     {
@@ -57,9 +57,13 @@ public sealed class CmmsConnector : ICmmsConnector
         response.EnsureSuccessStatusCode();
         var payload = await JsonSerializer.DeserializeAsync<CmmsWorkOrderResponse>(
             await response.Content.ReadAsStreamAsync(cancellationToken),
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
-        _logger.LogInformation("Fetched {Count} CMMS work orders for {EndpointId}", payload.Items.Count, endpointId);
-        return payload.Items.Select(CmmsToInternalMapper.ToWorkOrder).ToList();
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new InvalidOperationException("CMMS work-order response body was empty or could not be deserialized.");
+        var batch = ConnectorBatchMapper.MapAll(payload.Items, CmmsToInternalMapper.ToWorkOrder);
+        _logger.LogInformation(
+            "CMMS work orders for {EndpointId}: source={Source} accepted={Accepted} rejected={Rejected}",
+            endpointId, payload.Items.Count, batch.Accepted.Count, batch.RejectedReasons.Count);
+        return batch;
     }
 }
 
@@ -98,14 +102,28 @@ internal static class CmmsToInternalMapper
 {
     public static CmmsWorkOrderData ToWorkOrder(CmmsWorkOrderDto source)
     {
-        var id = source.Id ?? throw new InvalidOperationException("CMMS work order missing Id.");
+        var id = string.IsNullOrWhiteSpace(source.Id)
+            ? throw new Platform.I2P.Domain.Exceptions.RecordMappingException("CMMS work order missing required Id.")
+            : source.Id;
+        if (string.IsNullOrWhiteSpace(source.WorkOrderNumber))
+        {
+            throw new Platform.I2P.Domain.Exceptions.RecordMappingException(
+                $"CMMS work order '{id}' missing required WorkOrderNumber.");
+        }
+
+        if (string.IsNullOrWhiteSpace(source.AssetId))
+        {
+            throw new Platform.I2P.Domain.Exceptions.RecordMappingException(
+                $"CMMS work order '{id}' missing required AssetId.");
+        }
+
         var ts = source.Timestamp is null
             ? OperationalTimestamp.FromPlatform()
             : OperationalTimestamp.FromSource(source.Timestamp.Value);
         var quality = Enum.TryParse<QualityCode>(source.Quality, true, out var code)
             ? Quality.FromCode(code)
-            : Quality.Good();
-        return new CmmsWorkOrderData(id, source.WorkOrderNumber ?? id, source.AssetId ?? "UNKNOWN", ts, quality);
+            : Quality.Unknown("SourceDidNotProvideQuality");
+        return new CmmsWorkOrderData(id, source.WorkOrderNumber, source.AssetId, ts, quality);
     }
 }
 

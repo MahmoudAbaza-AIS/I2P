@@ -48,7 +48,7 @@ public sealed class LimsConnector : ILimsConnector
             : new ConnectorHealth(false, "Unhealthy", $"HTTP {(int)response.StatusCode}");
     }
 
-    public async Task<IReadOnlyList<LimsSampleData>> GetSamplesAsync(
+    public async Task<ConnectorBatchResult<LimsSampleData>> GetSamplesAsync(
         Guid endpointId,
         CancellationToken cancellationToken = default)
     {
@@ -57,9 +57,13 @@ public sealed class LimsConnector : ILimsConnector
         response.EnsureSuccessStatusCode();
         var payload = await JsonSerializer.DeserializeAsync<LimsSampleResponse>(
             await response.Content.ReadAsStreamAsync(cancellationToken),
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
-        _logger.LogInformation("Fetched {Count} LIMS samples for {EndpointId}", payload.Samples.Count, endpointId);
-        return payload.Samples.Select(LimsToInternalMapper.ToSample).ToList();
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new InvalidOperationException("LIMS sample response body was empty or could not be deserialized.");
+        var batch = ConnectorBatchMapper.MapAll(payload.Samples, LimsToInternalMapper.ToSample);
+        _logger.LogInformation(
+            "LIMS samples for {EndpointId}: source={Source} accepted={Accepted} rejected={Rejected}",
+            endpointId, payload.Samples.Count, batch.Accepted.Count, batch.RejectedReasons.Count);
+        return batch;
     }
 }
 
@@ -99,20 +103,34 @@ internal static class LimsToInternalMapper
 {
     public static LimsSampleData ToSample(LimsSampleDto source)
     {
-        var id = source.Id ?? throw new InvalidOperationException("LIMS sample missing Id.");
+        var id = string.IsNullOrWhiteSpace(source.Id)
+            ? throw new Platform.I2P.Domain.Exceptions.RecordMappingException("LIMS sample missing required Id.")
+            : source.Id;
+        if (string.IsNullOrWhiteSpace(source.SampleId))
+        {
+            throw new Platform.I2P.Domain.Exceptions.RecordMappingException(
+                $"LIMS sample '{id}' missing required SampleId.");
+        }
+
+        if (string.IsNullOrWhiteSpace(source.Analyte))
+        {
+            throw new Platform.I2P.Domain.Exceptions.RecordMappingException(
+                $"LIMS sample '{id}' missing required Analyte.");
+        }
+
+        if (source.Result is null)
+        {
+            throw new Platform.I2P.Domain.Exceptions.RecordMappingException(
+                $"LIMS sample '{id}' missing required Result.");
+        }
+
         var ts = source.Timestamp is null
             ? OperationalTimestamp.FromPlatform()
             : OperationalTimestamp.FromSource(source.Timestamp.Value);
         var quality = Enum.TryParse<QualityCode>(source.Quality, true, out var code)
             ? Quality.FromCode(code)
-            : Quality.Good();
-        return new LimsSampleData(
-            id,
-            source.SampleId ?? id,
-            source.Analyte ?? "UNKNOWN",
-            source.Result ?? string.Empty,
-            ts,
-            quality);
+            : Quality.Unknown("SourceDidNotProvideQuality");
+        return new LimsSampleData(id, source.SampleId, source.Analyte, source.Result, ts, quality);
     }
 }
 

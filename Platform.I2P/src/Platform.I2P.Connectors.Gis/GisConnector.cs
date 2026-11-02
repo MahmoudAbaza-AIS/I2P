@@ -48,7 +48,7 @@ public sealed class GisConnector : IGisConnector
             : new ConnectorHealth(false, "Unhealthy", $"HTTP {(int)response.StatusCode}");
     }
 
-    public async Task<IReadOnlyList<GisFeatureData>> GetFeaturesAsync(
+    public async Task<ConnectorBatchResult<GisFeatureData>> GetFeaturesAsync(
         Guid endpointId,
         string layerName,
         CancellationToken cancellationToken = default)
@@ -59,9 +59,13 @@ public sealed class GisConnector : IGisConnector
         response.EnsureSuccessStatusCode();
         var payload = await JsonSerializer.DeserializeAsync<GisFeatureResponse>(
             await response.Content.ReadAsStreamAsync(cancellationToken),
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
-        _logger.LogInformation("Fetched {Count} GIS features for {EndpointId}", payload.Features.Count, endpointId);
-        return payload.Features.Select(f => GisToInternalMapper.ToFeature(f, layerName)).ToList();
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+            ?? throw new InvalidOperationException("GIS feature response body was empty or could not be deserialized.");
+        var batch = ConnectorBatchMapper.MapAll(payload.Features, f => GisToInternalMapper.ToFeature(f, layerName));
+        _logger.LogInformation(
+            "GIS features for {EndpointId}: source={Source} accepted={Accepted} rejected={Rejected}",
+            endpointId, payload.Features.Count, batch.Accepted.Count, batch.RejectedReasons.Count);
+        return batch;
     }
 }
 
@@ -99,14 +103,22 @@ internal static class GisToInternalMapper
 {
     public static GisFeatureData ToFeature(GisFeatureDto source, string layerName)
     {
-        var id = source.Id ?? throw new InvalidOperationException("GIS feature missing Id.");
+        var id = string.IsNullOrWhiteSpace(source.Id)
+            ? throw new Platform.I2P.Domain.Exceptions.RecordMappingException("GIS feature missing required Id.")
+            : source.Id;
+        if (string.IsNullOrWhiteSpace(source.Geometry))
+        {
+            throw new Platform.I2P.Domain.Exceptions.RecordMappingException(
+                $"GIS feature '{id}' missing required Geometry.");
+        }
+
         var ts = source.Timestamp is null
             ? OperationalTimestamp.FromPlatform()
             : OperationalTimestamp.FromSource(source.Timestamp.Value);
         var quality = Enum.TryParse<QualityCode>(source.Quality, true, out var code)
             ? Quality.FromCode(code)
-            : Quality.Good();
-        return new GisFeatureData(id, layerName, source.Geometry ?? "{}", ts, quality);
+            : Quality.Unknown("SourceDidNotProvideQuality");
+        return new GisFeatureData(id, layerName, source.Geometry, ts, quality);
     }
 }
 
