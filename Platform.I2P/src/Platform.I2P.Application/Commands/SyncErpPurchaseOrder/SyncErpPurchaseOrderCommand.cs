@@ -31,6 +31,7 @@ public sealed class SyncErpPurchaseOrderHandler
     private readonly IExchangeRecordRepository _exchanges;
     private readonly IEventPublisher _publisher;
     private readonly IAuditWriter _auditWriter;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserContext _user;
     private readonly ILogger<SyncErpPurchaseOrderHandler> _logger;
 
@@ -40,6 +41,7 @@ public sealed class SyncErpPurchaseOrderHandler
         IExchangeRecordRepository exchanges,
         IEventPublisher publisher,
         IAuditWriter auditWriter,
+        IUnitOfWork unitOfWork,
         ICurrentUserContext user,
         ILogger<SyncErpPurchaseOrderHandler> logger)
     {
@@ -48,6 +50,7 @@ public sealed class SyncErpPurchaseOrderHandler
         _exchanges = exchanges;
         _publisher = publisher;
         _auditWriter = auditWriter;
+        _unitOfWork = unitOfWork;
         _user = user;
         _logger = logger;
     }
@@ -69,18 +72,14 @@ public sealed class SyncErpPurchaseOrderHandler
             throw new InvalidOperationException($"Endpoint '{endpoint.Name}' is disabled.");
         }
 
-        await _auditWriter.WriteAsync(
-            "ManualSyncTriggered",
-            _user.Subject,
-            $"ERP sync for endpoint {endpoint.Id} tenant {endpoint.TenantId}",
-            cancellationToken);
-
         var purchaseOrders = await _erpConnector.GetPurchaseOrdersAsync(
             request.EndpointId,
             request.PurchaseOrderNumber,
             cancellationToken);
 
         var results = new List<PurchaseOrderDto>();
+        var correlationId = Guid.NewGuid();
+        long sequence = DateTimeOffset.UtcNow.Ticks;
 
         foreach (var po in purchaseOrders)
         {
@@ -115,17 +114,25 @@ public sealed class SyncErpPurchaseOrderHandler
 
             await _exchanges.AddAsync(exchange, cancellationToken);
 
+            var messageId = Guid.NewGuid();
             await _publisher.PublishAsync(
                 new ErpDataReceivedEvent(
+                    messageId,
+                    correlationId,
                     exchange.Id,
                     endpoint.Id,
                     exchange.ExternalId,
+                    EntityType: "PurchaseOrder",
+                    SequenceNumber: sequence++,
                     exchange.PayloadJson,
                     exchange.Timestamp.Value,
                     exchange.Quality.Code.ToString(),
                     exchange.SourceSystem,
                     DateTimeOffset.UtcNow),
                 cancellationToken);
+
+            // One SaveChanges for exchange + MassTransit outbox row (D-01 / WP1).
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             results.Add(new PurchaseOrderDto(
                 po.ExternalId,
@@ -137,6 +144,13 @@ public sealed class SyncErpPurchaseOrderHandler
                 po.Quality.Code.ToString(),
                 _erpConnector.ConnectorName));
         }
+
+        await _auditWriter.WriteAsync(
+            "ManualSyncCompleted",
+            _user.Subject,
+            $"ERP sync for endpoint {endpoint.Id} tenant {endpoint.TenantId} results={results.Count}",
+            cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return results;
     }

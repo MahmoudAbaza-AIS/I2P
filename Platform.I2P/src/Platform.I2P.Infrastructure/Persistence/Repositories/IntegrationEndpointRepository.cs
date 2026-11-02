@@ -68,10 +68,10 @@ public sealed class ExchangeRecordRepository : IExchangeRecordRepository
     public Task<bool> ExistsByIdempotencyKeyAsync(string idempotencyKey, CancellationToken cancellationToken = default) =>
         _db.ExchangeRecords.AnyAsync(x => x.IdempotencyKey == idempotencyKey, cancellationToken);
 
-    public async Task AddAsync(ExchangeRecord record, CancellationToken cancellationToken = default)
+    public Task AddAsync(ExchangeRecord record, CancellationToken cancellationToken = default)
     {
         _db.ExchangeRecords.Add(ExchangeRecordEntity.FromDomain(record));
-        await _db.SaveChangesAsync(cancellationToken);
+        return Task.CompletedTask;
     }
 
     public async Task<IReadOnlyList<ExchangeRecord>> GetPagedForTenantAsync(
@@ -100,7 +100,7 @@ public sealed class EfAuditWriter : IAuditWriter
 
     public EfAuditWriter(I2PDbContext db) => _db = db;
 
-    public async Task WriteAsync(string action, string actor, string details, CancellationToken cancellationToken = default)
+    public Task WriteAsync(string action, string actor, string details, CancellationToken cancellationToken = default)
     {
         _db.AuditRecords.Add(new AuditRecord
         {
@@ -110,6 +110,6 @@ public sealed class EfAuditWriter : IAuditWriter
             Details = details,
             CreatedAtUtc = DateTimeOffset.UtcNow
         });
-        await _db.SaveChangesAsync(cancellationToken);
+        return Task.CompletedTask;
     }
 }
