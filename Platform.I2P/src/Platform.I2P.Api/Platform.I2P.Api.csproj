@@ -13,6 +13,8 @@
     </PackageReference>
     <!-- Direct pin: Microsoft.AspNetCore.OpenApi 10.0.x may still resolve OpenApi 2.0.0 (GHSA-v5pm-xwqc-g5wc) -->
     <PackageReference Include="Microsoft.OpenApi" Version="2.12.0" />
+    <!-- WP0 D-10: JwtBearer/OpenApi path previously resolved vulnerable Pkcs 9.0.4 -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />

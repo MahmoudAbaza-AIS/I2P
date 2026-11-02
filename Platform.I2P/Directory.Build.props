@@ -7,5 +7,13 @@
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <!-- PR Code Standards Checklist §11.3: treat warnings as errors -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!--
+      D7 Option B (Mahmoud, 2026-11-02):
+      - FluentAssertions: 7.x only (tests pin 7.2.2)
+      - MassTransit: keep 8.5.2; do not take >= 9
+      - MediatR: keep 12.5.0; do not take > 12.5.0
+      - AutoMapper >= 15 and Duende.* packages: do not add
+      Enforced by Platform.I2P.Architecture.Tests.LicensingPolicyTests
+    -->
   </PropertyGroup>
 </Project>

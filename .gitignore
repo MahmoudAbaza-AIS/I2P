@@ -16,3 +16,8 @@ appsettings.*.local.json
 .env
 .env.*
 !.env.example
+
+# Local documentation (never push)
+Platform.Docs/
+docs/
+
