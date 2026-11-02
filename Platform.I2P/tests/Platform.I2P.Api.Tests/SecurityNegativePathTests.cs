@@ -32,7 +32,7 @@ public sealed class SecurityNegativePathTests : IClassFixture<DevBearerApiFactor
     public async Task Missing_Bearer_Token_Returns_401()
     {
         var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/integration/sync/exchanges");
+        var response = await client.GetAsync("/api/v1/integration/sync/exchanges");
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -41,7 +41,7 @@ public sealed class SecurityNegativePathTests : IClassFixture<DevBearerApiFactor
     {
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "not-the-dev-secret");
-        var response = await client.GetAsync("/api/integration/sync/exchanges");
+        var response = await client.GetAsync("/api/v1/integration/sync/exchanges");
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -54,7 +54,7 @@ public sealed class SecurityNegativePathTests : IClassFixture<DevBearerApiFactor
             new AuthenticationHeaderValue("Bearer", DevBearerApiFactory.DevToken);
 
         var response = await client.PostAsync(
-            "/api/integration/sync/erp/purchase-orders",
+            "/api/v1/integration/sync/erp/purchase-orders",
             new StringContent("""{"endpointId":"11111111-1111-1111-1111-111111111111"}""", Encoding.UTF8, "application/json"));
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -82,7 +82,7 @@ public sealed class JwtSecurityNegativePathTests : IClassFixture<JwtApiFactory>
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", _factory.CreateToken(expiresIn: TimeSpan.FromMinutes(-5)));
 
-        var response = await client.GetAsync("/api/integration/sync/exchanges");
+        var response = await client.GetAsync("/api/v1/integration/sync/exchanges");
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
@@ -96,7 +96,7 @@ public sealed class JwtSecurityNegativePathTests : IClassFixture<JwtApiFactory>
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", string.Join('.', parts));
 
-        var response = await client.GetAsync("/api/integration/sync/exchanges");
+        var response = await client.GetAsync("/api/v1/integration/sync/exchanges");
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 }
