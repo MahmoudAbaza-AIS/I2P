@@ -52,8 +52,18 @@ public interface ILimsConnector
 
 public interface IEventPublisher
 {
+    /// <summary>
+    /// Stages an integration event for transactional outbox delivery.
+    /// Does not commit; caller must <see cref="IUnitOfWork.SaveChangesAsync"/>.
+    /// </summary>
     Task PublishAsync<TEvent>(TEvent @event, CancellationToken cancellationToken = default)
         where TEvent : class;
+}
+
+/// <summary>Commits the ambient EF change tracker (business rows + MassTransit outbox).</summary>
+public interface IUnitOfWork
+{
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 
 public interface ISecretsProvider
