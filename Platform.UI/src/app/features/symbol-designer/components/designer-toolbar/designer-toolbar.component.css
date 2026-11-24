@@ -1,0 +1,36 @@
+.sd-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--sd-radius);
+}
+.sd-toolbar__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding-inline-end: 0.5rem;
+  border-inline-end: 1px solid var(--surface-border);
+}
+.sd-toolbar__group:last-child {
+  border-inline-end: 0;
+  padding-inline-end: 0;
+}
+.sd-toolbar__group--end {
+  margin-inline-start: auto;
+}
+.sd-toolbar__zoom {
+  min-width: 3.25rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-color-secondary);
+}
+.sd-toolbar__backdrop .sd-input {
+  width: auto;
+  margin-inline-start: 0.25rem;
+}

@@ -1,0 +1,97 @@
+.sd-tree__list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-inline: -0.25rem;
+  padding: 0.125rem;
+}
+.sd-tree__row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.875rem;
+  padding-inline-end: 0.25rem;
+  border: 1px solid transparent;
+  border-inline-start-width: 3px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: var(--text-color);
+  cursor: pointer;
+}
+.sd-tree__row:hover {
+  background: var(--surface-hover);
+}
+.sd-tree__row:focus-visible {
+  outline-offset: -2px;
+}
+.sd-tree__row--selected,
+.sd-tree__row--selected:hover {
+  background: var(--sd-accent-soft);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
+  border-inline-start-color: var(--primary-color);
+}
+.sd-tree__row--selected .sd-tree__name {
+  font-weight: 600;
+}
+.sd-tree__row--hidden .sd-tree__name,
+.sd-tree__row--hidden .sd-tree__kind {
+  opacity: 0.55;
+}
+.sd-tree__toggle {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+}
+.sd-tree__toggle .sd-icon {
+  transition: transform 0.15s;
+}
+/* Open = pointing down in both directions (overrides the RTL flip). */
+.sd .sd-tree__toggle--open .sd-icon {
+  transform: rotate(90deg);
+}
+.sd-tree__kind {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 4px;
+  background: var(--sd-muted-bg);
+  color: var(--text-color-secondary);
+}
+.sd-tree__kind[data-kind='group'] {
+  background: var(--sd-accent-soft);
+  color: var(--primary-color);
+}
+.sd-tree__kind .sd-icon svg {
+  width: 13px;
+  height: 13px;
+}
+.sd-tree__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sd-tree__tag {
+  font:
+    0.6875rem ui-monospace,
+    monospace;
+  color: var(--text-color-secondary);
+}
+.sd-tree__actions {
+  display: inline-flex;
+  flex: none;
+}

@@ -39,6 +39,13 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/i2p/i2p.routes').then((m) => m.I2P_ROUTES),
       },
+      {
+        path: 'symbol-designer',
+        loadChildren: () =>
+          import('./features/symbol-designer/symbol-designer.routes').then(
+            (m) => m.SYMBOL_DESIGNER_ROUTES
+          ),
+      },
     ],
   },
 
