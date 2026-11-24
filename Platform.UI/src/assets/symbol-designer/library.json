@@ -1,0 +1,919 @@
+[
+  {
+    "category": "chart-parts",
+    "file": "bar-3d-blue.svg",
+    "name": "Bar 3d blue",
+    "url": "/Executive Dashboard/Symbols/chart-parts/bar-3d-blue.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "bar-3d-red.svg",
+    "name": "Bar 3d red",
+    "url": "/Executive Dashboard/Symbols/chart-parts/bar-3d-red.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "bar-3d-yellow.svg",
+    "name": "Bar 3d yellow",
+    "url": "/Executive Dashboard/Symbols/chart-parts/bar-3d-yellow.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "capsule-empty.svg",
+    "name": "Capsule empty",
+    "url": "/Executive Dashboard/Symbols/chart-parts/capsule-empty.svg",
+    "sizeKb": 3
+  },
+  {
+    "category": "chart-parts",
+    "file": "capsule-fill-red.svg",
+    "name": "Capsule fill red",
+    "url": "/Executive Dashboard/Symbols/chart-parts/capsule-fill-red.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "capsule-filled-red.svg",
+    "name": "Capsule filled red",
+    "url": "/Executive Dashboard/Symbols/chart-parts/capsule-filled-red.svg",
+    "sizeKb": 4
+  },
+  {
+    "category": "chart-parts",
+    "file": "cylinder-3d-blue.svg",
+    "name": "Cylinder 3d blue",
+    "url": "/Executive Dashboard/Symbols/chart-parts/cylinder-3d-blue.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "disc-3d-red.svg",
+    "name": "Disc 3d red",
+    "url": "/Executive Dashboard/Symbols/chart-parts/disc-3d-red.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "donut-arc-blue.svg",
+    "name": "Donut arc blue",
+    "url": "/Executive Dashboard/Symbols/chart-parts/donut-arc-blue.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "donut-ring-orange.svg",
+    "name": "Donut ring orange",
+    "url": "/Executive Dashboard/Symbols/chart-parts/donut-ring-orange.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "donut-three-segment.svg",
+    "name": "Donut three segment",
+    "url": "/Executive Dashboard/Symbols/chart-parts/donut-three-segment.svg",
+    "sizeKb": 2
+  },
+  {
+    "category": "chart-parts",
+    "file": "donut-two-segment.svg",
+    "name": "Donut two segment",
+    "url": "/Executive Dashboard/Symbols/chart-parts/donut-two-segment.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "gauge-arc-cyan-empty.svg",
+    "name": "Gauge arc cyan empty",
+    "url": "/Executive Dashboard/Symbols/chart-parts/gauge-arc-cyan-empty.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "gauge-arc-red-empty.svg",
+    "name": "Gauge arc red empty",
+    "url": "/Executive Dashboard/Symbols/chart-parts/gauge-arc-red-empty.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "side-bar-orange.svg",
+    "name": "Side bar orange",
+    "url": "/Executive Dashboard/Symbols/chart-parts/side-bar-orange.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "chart-parts",
+    "file": "side-bar-red.svg",
+    "name": "Side bar red",
+    "url": "/Executive Dashboard/Symbols/chart-parts/side-bar-red.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "charts",
+    "file": "bar-3d-combined.svg",
+    "name": "Bar 3d combined",
+    "url": "/Executive Dashboard/Symbols/charts/bar-3d-combined.svg",
+    "sizeKb": 2
+  },
+  {
+    "category": "charts",
+    "file": "chart-bar-stacked-weekly.svg",
+    "name": "Chart bar stacked weekly",
+    "url": "/Executive Dashboard/Symbols/charts/chart-bar-stacked-weekly.svg",
+    "sizeKb": 44
+  },
+  {
+    "category": "charts",
+    "file": "chart-line-daily.svg",
+    "name": "Chart line daily",
+    "url": "/Executive Dashboard/Symbols/charts/chart-line-daily.svg",
+    "sizeKb": 36
+  },
+  {
+    "category": "charts",
+    "file": "chart-progress-bar.svg",
+    "name": "Chart progress bar",
+    "url": "/Executive Dashboard/Symbols/charts/chart-progress-bar.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "charts",
+    "file": "chart-speedometer.svg",
+    "name": "Chart speedometer",
+    "url": "/Executive Dashboard/Symbols/charts/chart-speedometer.svg",
+    "sizeKb": 16
+  },
+  {
+    "category": "charts",
+    "file": "cylinder-3d-combined.svg",
+    "name": "Cylinder 3d combined",
+    "url": "/Executive Dashboard/Symbols/charts/cylinder-3d-combined.svg",
+    "sizeKb": 5
+  },
+  {
+    "category": "charts",
+    "file": "donut-three-segment-labeled.svg",
+    "name": "Donut three segment labeled",
+    "url": "/Executive Dashboard/Symbols/charts/donut-three-segment-labeled.svg",
+    "sizeKb": 11
+  },
+  {
+    "category": "charts",
+    "file": "gauge-percent-cyan.svg",
+    "name": "Gauge percent cyan",
+    "url": "/Executive Dashboard/Symbols/charts/gauge-percent-cyan.svg",
+    "sizeKb": 22
+  },
+  {
+    "category": "charts",
+    "file": "gauge-percent-green-large.svg",
+    "name": "Gauge percent green large",
+    "url": "/Executive Dashboard/Symbols/charts/gauge-percent-green-large.svg",
+    "sizeKb": 22
+  },
+  {
+    "category": "charts",
+    "file": "gauge-percent-green.svg",
+    "name": "Gauge percent green",
+    "url": "/Executive Dashboard/Symbols/charts/gauge-percent-green.svg",
+    "sizeKb": 24
+  },
+  {
+    "category": "charts",
+    "file": "gauge-percent-orange.svg",
+    "name": "Gauge percent orange",
+    "url": "/Executive Dashboard/Symbols/charts/gauge-percent-orange.svg",
+    "sizeKb": 21
+  },
+  {
+    "category": "charts",
+    "file": "gauge-percent-red-large.svg",
+    "name": "Gauge percent red large",
+    "url": "/Executive Dashboard/Symbols/charts/gauge-percent-red-large.svg",
+    "sizeKb": 21
+  },
+  {
+    "category": "charts",
+    "file": "gauge-percent-red.svg",
+    "name": "Gauge percent red",
+    "url": "/Executive Dashboard/Symbols/charts/gauge-percent-red.svg",
+    "sizeKb": 21
+  },
+  {
+    "category": "charts",
+    "file": "radar-weekly-average.svg",
+    "name": "Radar weekly average",
+    "url": "/Executive Dashboard/Symbols/charts/radar-weekly-average.svg",
+    "sizeKb": 18
+  },
+  {
+    "category": "charts",
+    "file": "radar-weekly.svg",
+    "name": "Radar weekly",
+    "url": "/Executive Dashboard/Symbols/charts/radar-weekly.svg",
+    "sizeKb": 12
+  },
+  {
+    "category": "charts",
+    "file": "waveform-faded.svg",
+    "name": "Waveform faded",
+    "url": "/Executive Dashboard/Symbols/charts/waveform-faded.svg",
+    "sizeKb": 14
+  },
+  {
+    "category": "charts",
+    "file": "waveform.svg",
+    "name": "Waveform",
+    "url": "/Executive Dashboard/Symbols/charts/waveform.svg",
+    "sizeKb": 14
+  },
+  {
+    "category": "counters",
+    "file": "counter-card-admission.svg",
+    "name": "Counter card admission",
+    "url": "/Executive Dashboard/Symbols/counters/counter-card-admission.svg",
+    "sizeKb": 32
+  },
+  {
+    "category": "counters",
+    "file": "counter-card-discharge.svg",
+    "name": "Counter card discharge",
+    "url": "/Executive Dashboard/Symbols/counters/counter-card-discharge.svg",
+    "sizeKb": 28
+  },
+  {
+    "category": "counters",
+    "file": "counter-card-referral.svg",
+    "name": "Counter card referral",
+    "url": "/Executive Dashboard/Symbols/counters/counter-card-referral.svg",
+    "sizeKb": 40
+  },
+  {
+    "category": "counters",
+    "file": "counter-card-walkout.svg",
+    "name": "Counter card walkout",
+    "url": "/Executive Dashboard/Symbols/counters/counter-card-walkout.svg",
+    "sizeKb": 23
+  },
+  {
+    "category": "counters",
+    "file": "counter-digit-single.svg",
+    "name": "Counter digit single",
+    "url": "/Executive Dashboard/Symbols/counters/counter-digit-single.svg",
+    "sizeKb": 2
+  },
+  {
+    "category": "counters",
+    "file": "counter-digits-triple.svg",
+    "name": "Counter digits triple",
+    "url": "/Executive Dashboard/Symbols/counters/counter-digits-triple.svg",
+    "sizeKb": 5
+  },
+  {
+    "category": "icons",
+    "file": "icon-ambulance.svg",
+    "name": "Icon ambulance",
+    "url": "/Executive Dashboard/Symbols/icons/icon-ambulance.svg",
+    "sizeKb": 2
+  },
+  {
+    "category": "icons",
+    "file": "icon-bed.svg",
+    "name": "Icon bed",
+    "url": "/Executive Dashboard/Symbols/icons/icon-bed.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "icon-city.svg",
+    "name": "Icon city",
+    "url": "/Executive Dashboard/Symbols/icons/icon-city.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "icon-headset.svg",
+    "name": "Icon headset",
+    "url": "/Executive Dashboard/Symbols/icons/icon-headset.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "icon-heartbeat.svg",
+    "name": "Icon heartbeat",
+    "url": "/Executive Dashboard/Symbols/icons/icon-heartbeat.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "icon-hospital-active.svg",
+    "name": "Icon hospital active",
+    "url": "/Executive Dashboard/Symbols/icons/icon-hospital-active.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "icon-scissors.svg",
+    "name": "Icon scissors",
+    "url": "/Executive Dashboard/Symbols/icons/icon-scissors.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "tile-ambulance.svg",
+    "name": "Tile ambulance",
+    "url": "/Executive Dashboard/Symbols/icons/tile-ambulance.svg",
+    "sizeKb": 2
+  },
+  {
+    "category": "icons",
+    "file": "tile-bed.svg",
+    "name": "Tile bed",
+    "url": "/Executive Dashboard/Symbols/icons/tile-bed.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "tile-headset.svg",
+    "name": "Tile headset",
+    "url": "/Executive Dashboard/Symbols/icons/tile-headset.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "tile-heartbeat.svg",
+    "name": "Tile heartbeat",
+    "url": "/Executive Dashboard/Symbols/icons/tile-heartbeat.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "tile-hospital-active.svg",
+    "name": "Tile hospital active",
+    "url": "/Executive Dashboard/Symbols/icons/tile-hospital-active.svg",
+    "sizeKb": 2
+  },
+  {
+    "category": "icons",
+    "file": "tile-scissors.svg",
+    "name": "Tile scissors",
+    "url": "/Executive Dashboard/Symbols/icons/tile-scissors.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "icons",
+    "file": "tile-stethoscope.svg",
+    "name": "Tile stethoscope",
+    "url": "/Executive Dashboard/Symbols/icons/tile-stethoscope.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-ambulance.svg",
+    "name": "Iso ambulance",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-ambulance.svg",
+    "sizeKb": 264
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-bed-shadow.svg",
+    "name": "Iso bed shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-bed-shadow.svg",
+    "sizeKb": 19
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-bed.svg",
+    "name": "Iso bed",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-bed.svg",
+    "sizeKb": 19
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-calendar-shadow.svg",
+    "name": "Iso calendar shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-calendar-shadow.svg",
+    "sizeKb": 7
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-calendar.svg",
+    "name": "Iso calendar",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-calendar.svg",
+    "sizeKb": 6
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-cancel-shadow.svg",
+    "name": "Iso cancel shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-cancel-shadow.svg",
+    "sizeKb": 19
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-cancel.svg",
+    "name": "Iso cancel",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-cancel.svg",
+    "sizeKb": 19
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-clipboard-shadow.svg",
+    "name": "Iso clipboard shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-clipboard-shadow.svg",
+    "sizeKb": 295
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-clipboard.svg",
+    "name": "Iso clipboard",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-clipboard.svg",
+    "sizeKb": 295
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-clock-shadow.svg",
+    "name": "Iso clock shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-clock-shadow.svg",
+    "sizeKb": 4422
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-clock.svg",
+    "name": "Iso clock",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-clock.svg",
+    "sizeKb": 4422
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-doctor-shadow.svg",
+    "name": "Iso doctor shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-doctor-shadow.svg",
+    "sizeKb": 302
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-doctor.svg",
+    "name": "Iso doctor",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-doctor.svg",
+    "sizeKb": 302
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-globe-support.svg",
+    "name": "Iso globe support",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-globe-support.svg",
+    "sizeKb": 58
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-handshake-shadow.svg",
+    "name": "Iso handshake shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-handshake-shadow.svg",
+    "sizeKb": 11
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-handshake.svg",
+    "name": "Iso handshake",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-handshake.svg",
+    "sizeKb": 11
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-hospital-building.svg",
+    "name": "Iso hospital building",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-hospital-building.svg",
+    "sizeKb": 15
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-hourglass.svg",
+    "name": "Iso hourglass",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-hourglass.svg",
+    "sizeKb": 8
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-house.svg",
+    "name": "Iso house",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-house.svg",
+    "sizeKb": 5
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-imaging-machine-shadow.svg",
+    "name": "Iso imaging machine shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-imaging-machine-shadow.svg",
+    "sizeKb": 35
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-imaging-machine.svg",
+    "name": "Iso imaging machine",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-imaging-machine.svg",
+    "sizeKb": 34
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-medical-cycle-shadow.svg",
+    "name": "Iso medical cycle shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-medical-cycle-shadow.svg",
+    "sizeKb": 37
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-medical-cycle.svg",
+    "name": "Iso medical cycle",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-medical-cycle.svg",
+    "sizeKb": 37
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-medicine-jar-shadow.svg",
+    "name": "Iso medicine jar shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-medicine-jar-shadow.svg",
+    "sizeKb": 60
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-medicine-jar.svg",
+    "name": "Iso medicine jar",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-medicine-jar.svg",
+    "sizeKb": 60
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-operating-table-glow.svg",
+    "name": "Iso operating table glow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-operating-table-glow.svg",
+    "sizeKb": 44
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-operating-table.svg",
+    "name": "Iso operating table",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-operating-table.svg",
+    "sizeKb": 41
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-patient-bed.svg",
+    "name": "Iso patient bed",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-patient-bed.svg",
+    "sizeKb": 17
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-patient-care.svg",
+    "name": "Iso patient care",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-patient-care.svg",
+    "sizeKb": 40
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-patient-monitor.svg",
+    "name": "Iso patient monitor",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-patient-monitor.svg",
+    "sizeKb": 14
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-person-exit.svg",
+    "name": "Iso person exit",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-person-exit.svg",
+    "sizeKb": 6
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-person-fallen-shadow.svg",
+    "name": "Iso person fallen shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-person-fallen-shadow.svg",
+    "sizeKb": 19
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-person-fallen.svg",
+    "name": "Iso person fallen",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-person-fallen.svg",
+    "sizeKb": 19
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-phone-alert.svg",
+    "name": "Iso phone alert",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-phone-alert.svg",
+    "sizeKb": 8
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-phone-desk.svg",
+    "name": "Iso phone desk",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-phone-desk.svg",
+    "sizeKb": 8
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-refresh-shadow.svg",
+    "name": "Iso refresh shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-refresh-shadow.svg",
+    "sizeKb": 7
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-refresh.svg",
+    "name": "Iso refresh",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-refresh.svg",
+    "sizeKb": 7
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-support-agent.svg",
+    "name": "Iso support agent",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-support-agent.svg",
+    "sizeKb": 30
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-transfer-arrows-shadow.svg",
+    "name": "Iso transfer arrows shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-transfer-arrows-shadow.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-transfer-arrows.svg",
+    "name": "Iso transfer arrows",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-transfer-arrows.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-treatment-chair-shadow.svg",
+    "name": "Iso treatment chair shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-treatment-chair-shadow.svg",
+    "sizeKb": 16
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-treatment-chair.svg",
+    "name": "Iso treatment chair",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-treatment-chair.svg",
+    "sizeKb": 15
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-virus-shadow.svg",
+    "name": "Iso virus shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-virus-shadow.svg",
+    "sizeKb": 182
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-virus.svg",
+    "name": "Iso virus",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-virus.svg",
+    "sizeKb": 182
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-waiting-area.svg",
+    "name": "Iso waiting area",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-waiting-area.svg",
+    "sizeKb": 177
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-wheelchair-return-shadow.svg",
+    "name": "Iso wheelchair return shadow",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-wheelchair-return-shadow.svg",
+    "sizeKb": 30
+  },
+  {
+    "category": "illustrations",
+    "file": "iso-wheelchair-return.svg",
+    "name": "Iso wheelchair return",
+    "url": "/Executive Dashboard/Symbols/illustrations/iso-wheelchair-return.svg",
+    "sizeKb": 30
+  },
+  {
+    "category": "kpi-cards",
+    "file": "capacity-card.svg",
+    "name": "Capacity card",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/capacity-card.svg",
+    "sizeKb": 27
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-card-side-bar-orange.svg",
+    "name": "Kpi card side bar orange",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-card-side-bar-orange.svg",
+    "sizeKb": 9
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-card-side-bar-red.svg",
+    "name": "Kpi card side bar red",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-card-side-bar-red.svg",
+    "sizeKb": 11
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-card-title-bottom-01.svg",
+    "name": "Kpi card title bottom 01",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-card-title-bottom-01.svg",
+    "sizeKb": 6
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-card-title-bottom-02.svg",
+    "name": "Kpi card title bottom 02",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-card-title-bottom-02.svg",
+    "sizeKb": 9
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-card-title-bottom-03.svg",
+    "name": "Kpi card title bottom 03",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-card-title-bottom-03.svg",
+    "sizeKb": 7
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-card-title-bottom-04.svg",
+    "name": "Kpi card title bottom 04",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-card-title-bottom-04.svg",
+    "sizeKb": 8
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-card-title-top-green.svg",
+    "name": "Kpi card title top green",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-card-title-top-green.svg",
+    "sizeKb": 11
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-card-title-top-orange.svg",
+    "name": "Kpi card title top orange",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-card-title-top-orange.svg",
+    "sizeKb": 13
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-card-title-top-red.svg",
+    "name": "Kpi card title top red",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-card-title-top-red.svg",
+    "sizeKb": 9
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-value-days.svg",
+    "name": "Kpi value days",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-value-days.svg",
+    "sizeKb": 6
+  },
+  {
+    "category": "kpi-cards",
+    "file": "kpi-value-percent.svg",
+    "name": "Kpi value percent",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/kpi-value-percent.svg",
+    "sizeKb": 2
+  },
+  {
+    "category": "kpi-cards",
+    "file": "rating-score-card.svg",
+    "name": "Rating score card",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/rating-score-card.svg",
+    "sizeKb": 28
+  },
+  {
+    "category": "kpi-cards",
+    "file": "rating-score.svg",
+    "name": "Rating score",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/rating-score.svg",
+    "sizeKb": 4
+  },
+  {
+    "category": "kpi-cards",
+    "file": "rating-stars.svg",
+    "name": "Rating stars",
+    "url": "/Executive Dashboard/Symbols/kpi-cards/rating-stars.svg",
+    "sizeKb": 6
+  },
+  {
+    "category": "legends",
+    "file": "activity-active.svg",
+    "name": "Activity active",
+    "url": "/Executive Dashboard/Symbols/legends/activity-active.svg",
+    "sizeKb": 7
+  },
+  {
+    "category": "legends",
+    "file": "activity-dots-row.svg",
+    "name": "Activity dots row",
+    "url": "/Executive Dashboard/Symbols/legends/activity-dots-row.svg",
+    "sizeKb": 8
+  },
+  {
+    "category": "legends",
+    "file": "activity-idle.svg",
+    "name": "Activity idle",
+    "url": "/Executive Dashboard/Symbols/legends/activity-idle.svg",
+    "sizeKb": 7
+  },
+  {
+    "category": "legends",
+    "file": "status-approved.svg",
+    "name": "Status approved",
+    "url": "/Executive Dashboard/Symbols/legends/status-approved.svg",
+    "sizeKb": 6
+  },
+  {
+    "category": "legends",
+    "file": "status-cancelled.svg",
+    "name": "Status cancelled",
+    "url": "/Executive Dashboard/Symbols/legends/status-cancelled.svg",
+    "sizeKb": 7
+  },
+  {
+    "category": "legends",
+    "file": "status-no-show.svg",
+    "name": "Status no show",
+    "url": "/Executive Dashboard/Symbols/legends/status-no-show.svg",
+    "sizeKb": 6
+  },
+  {
+    "category": "legends",
+    "file": "status-on-time.svg",
+    "name": "Status on time",
+    "url": "/Executive Dashboard/Symbols/legends/status-on-time.svg",
+    "sizeKb": 4
+  },
+  {
+    "category": "legends",
+    "file": "status-pending.svg",
+    "name": "Status pending",
+    "url": "/Executive Dashboard/Symbols/legends/status-pending.svg",
+    "sizeKb": 5
+  },
+  {
+    "category": "legends",
+    "file": "status-rejected.svg",
+    "name": "Status rejected",
+    "url": "/Executive Dashboard/Symbols/legends/status-rejected.svg",
+    "sizeKb": 7
+  },
+  {
+    "category": "photos",
+    "file": "photo-body-scan-full.svg",
+    "name": "Photo body scan full",
+    "url": "/Executive Dashboard/Symbols/photos/photo-body-scan-full.svg",
+    "sizeKb": 5028
+  },
+  {
+    "category": "photos",
+    "file": "photo-body-scan-partial.svg",
+    "name": "Photo body scan partial",
+    "url": "/Executive Dashboard/Symbols/photos/photo-body-scan-partial.svg",
+    "sizeKb": 5028
+  },
+  {
+    "category": "photos",
+    "file": "photo-facility-building.svg",
+    "name": "Photo facility building",
+    "url": "/Executive Dashboard/Symbols/photos/photo-facility-building.svg",
+    "sizeKb": 4339
+  },
+  {
+    "category": "shapes",
+    "file": "shape-circle-glow.svg",
+    "name": "Shape circle glow",
+    "url": "/Executive Dashboard/Symbols/shapes/shape-circle-glow.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "shapes",
+    "file": "shape-ellipse-outline.svg",
+    "name": "Shape ellipse outline",
+    "url": "/Executive Dashboard/Symbols/shapes/shape-ellipse-outline.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "shapes",
+    "file": "shape-floor-shadow.svg",
+    "name": "Shape floor shadow",
+    "url": "/Executive Dashboard/Symbols/shapes/shape-floor-shadow.svg",
+    "sizeKb": 1
+  },
+  {
+    "category": "shapes",
+    "file": "shape-line-faint.svg",
+    "name": "Shape line faint",
+    "url": "/Executive Dashboard/Symbols/shapes/shape-line-faint.svg",
+    "sizeKb": 1
+  }
+]

@@ -11,7 +11,8 @@
     "logout": "Sign out",
     "authUnconfiguredBanner": "Identity provider is not configured (D8 pending). Shell and UI foundation are available; protected API calls will return unauthorized until OIDC authority and client ID are set in config.json.",
     "sections": {
-      "i2p": "Integration (I2P)"
+      "i2p": "Integration (I2P)",
+      "design": "Design tools"
     }
   },
   "common": {
@@ -68,6 +69,193 @@
       "heading": "Authentication not configured",
       "message": "The application has not been configured with an identity provider. Update /config.json with the OIDC authority and client ID.",
       "docsLink": "View deployment documentation"
+    }
+  },
+  "symbolDesigner": {
+    "title": "Symbol Designer",
+    "subtitle": "Import a SCADA symbol, break it into parts, adjust them and export SVG + JSON.",
+    "confirmDiscard": "Discard the edits made to the current symbol?",
+    "toolbar": {
+      "label": "Designer tools",
+      "file": "File",
+      "import": "Import SVG",
+      "export": "Export SVG + JSON",
+      "history": "History",
+      "undo": "Undo",
+      "redo": "Redo",
+      "add": "Add element",
+      "addHint": "Add a {{role}} text element to the symbol",
+      "arrange": "Arrange",
+      "group": "Group",
+      "groupHint": "Group selected sibling parts (Ctrl/Cmd + click to multi-select)",
+      "ungroup": "Ungroup",
+      "groupAll": "Group all",
+      "groupAllHint": "Wrap all artwork into one \"symbol-content\" group",
+      "delete": "Delete",
+      "view": "View",
+      "zoomOut": "Zoom out",
+      "zoomIn": "Zoom in",
+      "zoomLevel": "Zoom level",
+      "resetView": "Reset view",
+      "backdrop": "Canvas backdrop"
+    },
+    "backdrop": {
+      "theme": "Backdrop: theme",
+      "inverse": "Backdrop: inverse",
+      "checker": "Backdrop: checker"
+    },
+    "roles": {
+      "graphic": "Graphic",
+      "label": "Label",
+      "value": "Dynamic value",
+      "unit": "Unit",
+      "status": "Status",
+      "text": "Text"
+    },
+    "defaults": {
+      "groupName": "Group",
+      "symbolContent": "Symbol content",
+      "text": {
+        "label": "Pump Pressure",
+        "value": "75.5",
+        "unit": "bar",
+        "status": "Normal",
+        "text": "Text"
+      }
+    },
+    "canvas": {
+      "label": "Symbol canvas",
+      "help": "Click a part to select it, Ctrl/Cmd + click to add to the selection, drag to move. Drag the background to pan and use the mouse wheel to zoom.",
+      "emptyHeading": "No symbol open",
+      "emptyMessage": "Pick a symbol from the library or import an SVG file to begin.",
+      "loading": "Loading symbol…",
+      "errorHeading": "The symbol could not be opened"
+    },
+    "errors": {
+      "notSvgFile": "Please select an SVG file.",
+      "tooLarge": "The SVG file exceeds the 10 MB limit.",
+      "invalidSvg": "The selected file is not valid SVG.",
+      "noSvgRoot": "The selected document does not have an SVG root element.",
+      "loadFailed": "The symbol file could not be loaded."
+    },
+    "status": {
+      "empty": "Open a symbol to begin.",
+      "imported": "Opened {{name}}. Use Ctrl/Cmd + click to select multiple parts.",
+      "exported": "Exported {{name}}.svg and {{name}}.json.",
+      "undone": "Undone.",
+      "redone": "Redone.",
+      "locked": "Part locked against canvas dragging.",
+      "unlocked": "Part unlocked.",
+      "deleted": "Deleted {{count}} part(s).",
+      "grouped": "Grouped {{count}} parts.",
+      "ungrouped": "Group removed; its parts are now independent.",
+      "groupedAll": "Grouped all artwork into symbol-content.",
+      "added": "Added {{name}}.",
+      "gaugeApplied": "Gauge path filled to {{percent}}%.",
+      "gaugeCleared": "Gauge progress cleared.",
+      "ungroupBlocked": "This group uses {{effect}}; ungrouping would change the artwork."
+    },
+    "tree": {
+      "title": "Parts",
+      "subtitle": "Objects and nested groups",
+      "collapse": "Collapse group",
+      "expand": "Expand group",
+      "hide": "Hide part",
+      "show": "Show part",
+      "lock": "Lock part",
+      "unlock": "Unlock part",
+      "bringForward": "Bring forward",
+      "sendBackward": "Send backward",
+      "delete": "Delete part",
+      "hint": "Ctrl/Cmd + click for multi-selection. Arrow keys move between rows.",
+      "emptyHeading": "No parts yet",
+      "emptyMessage": "Open a symbol to see its parts."
+    },
+    "props": {
+      "title": "Properties",
+      "subtitle": "Symbol and part settings",
+      "symbol": "Symbol",
+      "symbolName": "Symbol name",
+      "symbolNamePlaceholder": "Enter symbol name",
+      "selected": "Selected part",
+      "multiHint": "{{count}} parts selected. Properties apply to the first selected part.",
+      "partId": "Part id",
+      "objectName": "Part name",
+      "role": "Semantic role",
+      "roleHelp": "The role classifies the part. Its SVG type decides which controls are available.",
+      "textContent": "Text content",
+      "value": "Value",
+      "x": "X position",
+      "y": "Y position",
+      "fontFamily": "Font family",
+      "fontSize": "Font size",
+      "fontWeight": "Weight",
+      "weights": {
+        "300": "Light",
+        "600": "Semi-bold",
+        "normal": "Normal",
+        "bold": "Bold"
+      },
+      "fontStyle": "Font style",
+      "fontStyles": {
+        "normal": "Normal",
+        "italic": "Italic",
+        "oblique": "Oblique"
+      },
+      "textAnchor": "Anchor",
+      "anchors": {
+        "start": "Start",
+        "middle": "Middle",
+        "end": "End"
+      },
+      "textDecoration": "Text decoration",
+      "decorations": {
+        "none": "None",
+        "underline": "Underline",
+        "line-through": "Strikethrough",
+        "overline": "Overline"
+      },
+      "appearance": "Appearance",
+      "applyToChildren": "Apply appearance to all group children",
+      "fill": "Fill / text colour",
+      "stroke": "Border colour",
+      "strokeWidth": "Border width",
+      "opacity": "Opacity (0–1)",
+      "appearanceHelp": "For shapes, fill is the interior and border is the outline. For text, fill is the text colour. A border width of 0 removes the border.",
+      "transform": "Transform",
+      "translateX": "Offset X",
+      "translateY": "Offset Y",
+      "scaleX": "Scale X",
+      "scaleY": "Scale Y",
+      "rotation": "Rotation (degrees)",
+      "gauge": "Gauge path progress",
+      "gaugePercent": "Fill percentage",
+      "gaugeColor": "Progress colour",
+      "gaugeApply": "Apply gauge fill",
+      "gaugeClear": "Clear progress",
+      "gaugeHelp": "For an arc or line path, progress is drawn along the path from its start point.",
+      "noSelectionHeading": "No part selected",
+      "noSelectionMessage": "Select a part on the canvas or in the parts list to edit it."
+    },
+    "library": {
+      "title": "Library",
+      "subtitle": "Sample symbols and imported files",
+      "search": "Search symbols",
+      "imported": "Imported",
+      "loading": "Loading library…",
+      "error": "The symbol library could not be loaded.",
+      "noMatches": "No symbols match your search.",
+      "categories": {
+        "chart-parts": "Chart parts",
+        "charts": "Charts",
+        "counters": "Counters",
+        "icons": "Icons",
+        "illustrations": "Illustrations",
+        "kpi-cards": "KPI cards",
+        "legends": "Legends",
+        "photos": "Photos",
+        "shapes": "Shapes"
+      }
     }
   }
 }

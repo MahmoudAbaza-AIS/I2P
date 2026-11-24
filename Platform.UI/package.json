@@ -11,7 +11,8 @@
     "lint": "ng build --configuration development",
     "api:fetch": "node scripts/fetch-openapi.mjs",
     "api:generate": "ng-openapi-gen -c ng-openapi-gen.json",
-    "api:refresh": "npm run api:fetch && npm run api:generate"
+    "api:refresh": "npm run api:fetch && npm run api:generate",
+    "symbols:manifest": "node scripts/build-symbol-library.mjs"
   },
   "private": true,
   "packageManager": "npm@11.6.2",

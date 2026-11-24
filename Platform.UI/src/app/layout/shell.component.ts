@@ -111,6 +111,20 @@ import { ThemeService, Theme } from '../core/theme/theme.service';
               <span class="nav-label">{{ 'i2p.exchanges.title' | transloco }}</span>
             </a>
           </li>
+          <li class="sidebar-section-label" aria-hidden="true">
+            {{ 'shell.sections.design' | transloco }}
+          </li>
+          <li>
+            <a
+              routerLink="/symbol-designer"
+              routerLinkActive="active"
+              class="sidebar-nav-link"
+              [attr.aria-label]="'symbolDesigner.title' | transloco"
+            >
+              <span class="nav-icon" aria-hidden="true">✏️</span>
+              <span class="nav-label">{{ 'symbolDesigner.title' | transloco }}</span>
+            </a>
+          </li>
         </ul>
       </nav>
 
